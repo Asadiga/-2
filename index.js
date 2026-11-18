@@ -38,6 +38,30 @@ async function start() {
     printQRInTerminal: false // نعرض QR بأنفسنا عبر qrcode-terminal
   });
 
+  // ربط برقم الهاتف بدلاً من QR (لمن ليس لديه جهاز آخر للمسح):
+  // ضع رقم البوت في .env باسم PAIRING_NUMBER بصيغة دولية بلا +، مثال 249997560126،
+  // وسيطبع البوت رمز ربط من 8 أرقام تدخله في واتساب نفسه:
+  // الإعدادات > الأجهزة المرتبطة > ربط جهاز > الربط برقم الهاتف بدلاً من ذلك.
+  const pairingNumber = (process.env.PAIRING_NUMBER || "").replace(/\D/g, "");
+  if (pairingNumber && !state.creds.registered) {
+    // انتظر قليلاً حتى يتهيأ الاتصال قبل طلب الرمز.
+    setTimeout(async () => {
+      try {
+        const code = await sock.requestPairingCode(pairingNumber);
+        console.log("رمز ربط واتساب برقم الهاتف (" + pairingNumber + "): " + code);
+        console.log("أدخل هذا الرمز في واتساب: الإعدادات > الأجهزة المرتبطة > ربط جهاز > الربط برقم الهاتف.");
+        try {
+          require("fs").writeFileSync("./pairing.txt", code, "utf8");
+          console.log("تم حفظ رمز الربط في ./pairing.txt");
+        } catch (e) {
+          console.error("تعذر حفظ pairing.txt:", e.message);
+        }
+      } catch (e) {
+        console.error("تعذر طلب رمز الربط:", e.message);
+      }
+    }, 5000);
+  }
+
   sock.ev.on("creds.update", saveCreds);
 
   sock.ev.on("connection.update", (update) => {
