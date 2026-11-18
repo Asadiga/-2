@@ -9,7 +9,7 @@
 const { loadMemory, checkAndCountUsage, addProject, listProjects, addNote } = require("./memory");
 
 const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || "0", 10); // 0 = بلا حد يومي
-const BOT_NAME = process.env.BOT_NAME || "مساعد";
+const BOT_NAME = process.env.BOT_NAME || "أثير";
 
 // دالة الذكاء الاصطناعي القابلة للتبديل.
 // بدون مفتاح API لا تتصل بأي خدمة، وتعيد رداً احتياطياً واضحاً.
@@ -35,11 +35,11 @@ async function askAI(userText, memory) {
             {
               role: "system",
               content:
-                "أنت مساعد ذكاء اصطناعي يتحدث العربية. أجب عن أي سؤال أو موضوع دون قيود على المواضيع. المستخدم اسمه " +
+                "أنت أثير، المساعد الشخصي الخاص بالصادق. تحدث العربية بأسلوب ودود وشخصي مثل مساعد يعرفه جيداً. أجب عن أي سؤال أو موضوع دون قيود على المواضيع. المستخدم اسمه " +
                 (memory.user.name || "الصادق") +
                 ". مشاريعه الحالية: " +
                 (memory.projects.map((p) => p.name).join("، ") || "لا يوجد") +
-                "."
+                ". هو طالب تقنية معلومات، ويعمل على مشروع فيلدورا، مدينة حياة واقعية في روبلوكس."
             },
             { role: "user", content: userText }
           ]
@@ -64,11 +64,11 @@ async function askAI(userText, memory) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const prompt =
-        "أنت مساعد ذكاء اصطناعي يتحدث العربية. أجب عن أي سؤال أو موضوع دون قيود على المواضيع. المستخدم اسمه " +
+        "أنت أثير، المساعد الشخصي الخاص بالصادق. تحدث العربية بأسلوب ودود وشخصي مثل مساعد يعرفه جيداً. أجب عن أي سؤال أو موضوع دون قيود على المواضيع. المستخدم اسمه " +
         (memory.user.name || "الصادق") +
         ". مشاريعه الحالية: " +
         (memory.projects.map((p) => p.name).join("، ") || "لا يوجد") +
-        ". سؤال المستخدم: " +
+        ". هو طالب تقنية معلومات، ويعمل على مشروع فيلدورا، مدينة حياة واقعية في روبلوكس. سؤال المستخدم: " +
         userText;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
@@ -79,6 +79,15 @@ async function askAI(userText, memory) {
       clearTimeout(timer);
       const text = (await res.text()).trim();
       if (!text) continue;
+      // الخدمة قد تعيد خطأ JSON بدل نص (مثل 503 عند الضغط) — لا نرسله للمستخدم.
+      if (!res.ok || /"success":\s*false|SERVICE_UNAVAILABLE/i.test(text)) {
+        console.error("الخدمة المجانية مشغولة الآن:", text.slice(0, 200));
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 12000));
+          continue;
+        }
+        break;
+      }
       const waitMatch = text.match(/wait (\d+) seconds/i);
       if (waitMatch && attempt === 0) {
         const waitMs = (parseInt(waitMatch[1], 10) + 2) * 1000;
@@ -105,7 +114,7 @@ function localFallback(userText, memory) {
     return "أهلاً " + (memory.user.name || "بك") + "! كيف أقدر أساعدك اليوم؟ اسألني عن أي شيء، أو استخدم /help لعرض الأوامر.";
   }
   if (/من أنت|من انت|who are you/.test(lower)) {
-    return "أنا " + BOT_NAME + "، مساعدك في واتساب. أرد على أي سؤال أو موضوع، وأحفظ مشاريعك وملاحظاتك. اسألني عن أي شيء.";
+    return "أنا " + BOT_NAME + "، مساعدك الشخصي في واتساب. أعرفك يا صادق، وأتذكر مشاريعك وملاحظاتك، وأرد على أي سؤال أو موضوع. اسألني عن أي شيء.";
   }
   const math = t.match(/^\s*(-?[\d.]+)\s*([+\-*/×÷])\s*(-?[\d.]+)\s*$/);
   if (math) {
@@ -138,7 +147,7 @@ function localFallback(userText, memory) {
 
 function helpText() {
   return (
-    "أهلاً، أنا " + BOT_NAME + "، مساعدك في واتساب.\n\n" +
+    "أهلاً، أنا " + BOT_NAME + "، مساعدك الشخصي في واتساب.\n\n" +
     "الأوامر:\n" +
     "/help — عرض هذه المساعدة\n" +
     "/project <الاسم> | <وصف> — إضافة مشروع جديد\n" +
@@ -200,6 +209,11 @@ async function handleMessage(text, senderName) {
 
   if (clean.startsWith("/")) {
     return "أمر غير معروف. استخدم /help لعرض الأوامر المتاحة.";
+  }
+
+  // أسئلة سريعة يرد عليها محلياً فوراً، دون انتظار الذكاء الاصطناعي البطيء.
+  if (/^(سلام|مرحبا|مرحباً|هلا|اهلا|أهلا|صباح|مساء|hi|hello|hey)\b/i.test(clean) || /من أنت|من انت|who are you/i.test(clean) || /^\s*-?[\d.]+\s*[+\-*/×÷]\s*-?[\d.]+\s*$/.test(clean) || /الساعة|الوقت|التاريخ/.test(clean)) {
+    return localFallback(clean, memory);
   }
 
   // رسالة عادية: رد ذكاء اصطناعي (أو رد احتياطي إن لم يكن المفتاح مضبوطاً).

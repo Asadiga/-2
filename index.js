@@ -106,6 +106,18 @@ async function start() {
       // تجاهل رسائل الحالة (status) والقنوات
       if (msg.key.remoteJid === "status@broadcast") continue;
 
+      // خاص بصاحبه فقط: يرد فقط على رقم الصادق، ويتجاهل أي رقم آخر.
+      // OWNER_NUMBER في .env بصيغة دولية بلا +، مثال 249127271642.
+      const ownerNumber = (process.env.OWNER_NUMBER || "249127271642").replace(/\D/g, "");
+      const senderJid = msg.key.participant || msg.key.remoteJid || "";
+      const senderNumber = senderJid.split("@")[0].replace(/\D/g, "");
+      // تجاهل المجموعات: الرد فقط في محادثة خاصة مع الصادق.
+      if (msg.key.remoteJid.endsWith("@g.us")) continue;
+      if (ownerNumber && senderNumber !== ownerNumber) {
+        console.log("تجاهل رسالة من رقم غير مصرّح: " + senderNumber);
+        continue;
+      }
+
       const text =
         msg.message.conversation ||
         (msg.message.extendedTextMessage && msg.message.extendedTextMessage.text) ||
