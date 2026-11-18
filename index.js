@@ -147,11 +147,23 @@ async function start() {
       try {
         const reply = await handleMessage(text, sender);
         // قد يعيد handleMessage نصاً، أو كائن وسائط { text, mediaUrl }
-        // (مثل تصميم صورة) فيرسل كصورة واتساب مع تعليق.
+        // (مثل تصميم صورة) فيرسل كصورة واتساب مع تعليق، أو ملف/مستند.
         if (reply && typeof reply === "object") {
           if (reply.mediaUrl) {
             await sock.sendMessage(msg.key.remoteJid, {
               image: { url: reply.mediaUrl },
+              caption: reply.text || ""
+            });
+          } else if (reply.documentBuffer) {
+            await sock.sendMessage(msg.key.remoteJid, {
+              document: reply.documentBuffer,
+              fileName: reply.fileName || "file.txt",
+              mimetype: reply.mimetype || "text/plain",
+              caption: reply.text || ""
+            });
+          } else if (reply.mediaBuffer) {
+            await sock.sendMessage(msg.key.remoteJid, {
+              image: reply.mediaBuffer,
               caption: reply.text || ""
             });
           } else {

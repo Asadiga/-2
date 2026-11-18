@@ -8,6 +8,7 @@
 // أي رسالة أخرى: رد ذكاء اصطناعي (عبر askAI) أو رد احتياطي بدون مفتاح.
 const { loadMemory, checkAndCountUsage, addProject, listProjects, addNote, addAppointment, listAppointments } = require("./memory");
 const { browsePage } = require("./browser");
+const tools = require("./tools");
 
 const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || "0", 10); // 0 = بلا حد يومي
 const BOT_NAME = process.env.BOT_NAME || "أثير";
@@ -209,7 +210,15 @@ function helpText() {
     "• سجل دخول بحسابي في يوتيوب — أسجل دخول بأي حساب تعطيني إياه (يوتيوب، انستقرام، تيك توك...)\n" +
     "• نزل فيديو في حسابي على يوتيوب — أنشر بعد موافقتك\n" +
     "• صمم صورة مدينة مستقبلية — أصمم لك صورة فوراً وأرسلها لك\n" +
-    "• اعمل فيديو عن فيلدورا — توليد الفيديو يحتاج مفتاحاً مدفوعاً، وسأشرح لك البديل\n\n" +
+    "• اعمل فيديو عن فيلدورا — توليد الفيديو يحتاج مفتاحاً مدفوعاً، وسأشرح لك البديل\n" +
+    "• الطقس في الخرطوم — أخبرك بالطقس الآن\n" +
+    "• حول 100 دولار إلى جنيه سوداني — أحوّل لك العملات\n" +
+    "• أوقات الصلاة في الخرطوم — أخبرك بمواقيت الصلاة\n" +
+    "• سورة الفاتحة — أعرض لك السورة\n" +
+    "• ترجم صباح الخير إلى الإنجليزية — أترجم لك\n" +
+    "• اعمل QR لرابط example.com — أنشئ لك رمز QR\n" +
+    "• أخبار اليوم — أعرض لك أهم العناوين\n" +
+    "• ما معنى كلمة اجتهاد — أشرح لك معناها\n\n" +
     "وأي سؤال أو موضوع آخر، اسألني عنه مباشرة وسأرد عليك.\n" +
     "تنبيه: لا ترسل كلمة المرور هنا في المحادثة أبداً؛ الحساب يُربط بطريقة آمنة، ولا أنشر شيئاً إلا بعد موافقتك.\n" +
     (DAILY_LIMIT > 0
@@ -439,6 +448,117 @@ function accountIntentReply(clean) {
   // طلب فيديو: رد صادق — لا توليد فيديو مجاني، مع بديل تصميم الصور.
   const videoText = videoReply(clean);
   if (videoText) return videoText;
+
+  // ===== أدوات مجانية (بلا مفاتيح) =====
+  try {
+    // الطقس: "الطقس في الخرطوم"
+    {
+      const m = clean.match(/^(الطقس|طقس)\s*(في\s+)?(.+)$/);
+      if (m && m[3]) {
+        const r = await tools.getWeather(m[3].trim());
+        return r.text;
+      }
+    }
+    // العملات: "حول 100 دولار إلى جنيه سوداني"
+    {
+      const m = clean.match(/^(حوّل|حول|كم يساوي|كم سعر)\s+(\d+(?:\.\d+)?)\s+(.+)$/);
+      if (m) {
+        const parts = m[3].split(/\s+(إلى|الى)\s+/);
+        if (parts.length >= 3) {
+          const r = await tools.convertCurrency(parseFloat(m[2]), parts[0].trim(), parts[2].trim());
+          return r.text;
+        }
+      }
+    }
+    // أوقات الصلاة: "أوقات الصلاة في الخرطوم" (الخرطوم افتراضياً)
+    if (/(أوقات|مواقيت)\s*(الصلاة|صلاة)/.test(clean)) {
+      const m = clean.match(/في\s+(.+)$/);
+      const r = await tools.getPrayerTimes(m ? m[1].trim() : "الخرطوم");
+      return r.text;
+    }
+    // القرآن: "سورة الفاتحة" أو "سورة 36"
+    {
+      const m = clean.match(/^سورة\s+(.+)$/);
+      if (m) {
+        const r = await tools.getSurah(m[1].trim());
+        return r.text;
+      }
+    }
+    // الترجمة: "ترجم صباح الخير إلى الإنجليزية"
+    {
+      const m = clean.match(/^ترجم\s+(.+?)\s+(إلى|الى)\s+(الإنجليزية|الانجليزية|العربية|الفرنسية|الإسبانية|الاسبانية)\s*$/);
+      if (m) {
+        const target = /العربية/.test(m[3]) ? "ar" : /الفرنسية/.test(m[3]) ? "fr" : "en";
+        const r = await tools.translateText(m[1].trim(), target);
+        return r.text;
+      }
+    }
+    // QR: "اعمل QR لرابط https://example.com"
+    {
+      const m = clean.match(/^(اعمل|أنشئ|انشئ|سوي|سوّي)\s+(QR|كيو آر|رمز|باركود)\s*(ل|لرابط|للرابط)?\s*(.+)$/i);
+      if (m && m[4]) {
+        const buf = await tools.generateQRBuffer(m[4].trim());
+        return { text: "هذا رمز QR لما طلبته:\n" + m[4].trim(), mediaBuffer: buf, fileName: "qr.png", mimetype: "image/png" };
+      }
+    }
+    // عد تنازلي: "كم باقي على 2026-11-20"
+    {
+      const m = clean.match(/^كم باقي\s+(على|ل|لي)?\s*(.+)$/);
+      if (m) {
+        const dateMatch = m[2].match(/(\d{4}-\d{2}-\d{2})/);
+        if (dateMatch) {
+          const label = m[2].replace(dateMatch[1], "").trim();
+          return tools.countdownTo(dateMatch[1], label || dateMatch[1]);
+        }
+      }
+    }
+    // عشوائي: "اختار لي رقم"
+    if (/^(اختار|اختر)\s+(لي\s+)?(رقم|عدد)/.test(clean)) {
+      return "الرقم العشوائي: " + (Math.floor(Math.random() * 100) + 1) + " (من 1 إلى 100)";
+    }
+    // حقائق ونكت محلية
+    if (/^(حقيقة|معلومة|أخبرني حقيقة|قل لي حقيقة)/.test(clean)) {
+      return "💡 " + tools.randomPick(tools.FACTS);
+    }
+    if (/^(نكتة|اضحكني|قل نكتة|قول نكتة)/.test(clean)) {
+      return "😄 " + tools.randomPick(tools.JOKES);
+    }
+    // ملف نصي أو جدول CSV: "اعمل ملف نصي باسم ملاحظات فيه ..."
+    {
+      const m = clean.match(/^(اعمل|أنشئ|انشئ)\s+(ملف نصي|ملف|جدول)\s+(.+)$/);
+      if (m) {
+        const rest = m[3];
+        const nameMatch = rest.match(/باسم\s+([^\s]+)/);
+        const name = nameMatch ? nameMatch[1].replace(/\.(txt|md|csv)$/i, "") : "ملف";
+        const contentMatch = rest.match(/فيه\s+(.+)$/);
+        const content = contentMatch ? contentMatch[1] : "";
+        if (m[2] === "جدول") {
+          const rows = content ? content.split(/[;؛]/).map((r) => r.trim()).filter(Boolean) : ["الاسم,القيمة", "مثال,1"];
+          const csv = rows.join("\n");
+          return { text: "أنشأت لك الجدول: " + name + ".csv", documentBuffer: Buffer.from(csv, "utf8"), fileName: name + ".csv", mimetype: "text/csv" };
+        }
+        const text = content || "ملف أنشأه أثير.\n";
+        return { text: "أنشأت لك الملف: " + name + ".txt", documentBuffer: Buffer.from(text, "utf8"), fileName: name + ".txt", mimetype: "text/plain" };
+      }
+    }
+    // الأخبار: "أخبار اليوم"
+    if (/^(أخبار|اخبار|أخبار اليوم|اخبار اليوم|ما هي الأخبار|وش الأخبار)/.test(clean)) {
+      const r = await tools.getNews();
+      return r.text;
+    }
+    // معنى كلمة: "ما معنى كلمة ..."
+    // إن لم يجد القاموس المجاني معنى، نترك الرد للذكاء الاصطناعي بدلاً من الفشل.
+    {
+      const m = clean.match(/^ما معنى\s+(كلمة\s+)?(.+?)\s*\??$/);
+      if (m && m[2]) {
+        const r = await tools.defineWord(m[2].trim());
+        if (r.ok) return r.text;
+      }
+    }
+  } catch (err) {
+    console.error("خطأ في أداة مجانية:", err.message);
+    return "تعذرت هذه الخدمة المجانية الآن. حاول مرة أخرى بعد قليل.";
+  }
 
   // ===== الأوامر القديمة: بدائل للتوافق فقط، ليست مطلوبة =====
 
