@@ -13,6 +13,23 @@ const {
 const { handleMessage } = require("./bot");
 
 async function start() {
+  // خادم HTTP صغير لخدمات الويب المجانية (مثل Render Web Service):
+  // يرد على المنفذ PORT حتى لا تعتبر الخدمة متوقفة.
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 0;
+  if (port) {
+    try {
+      const http = require("http");
+      http
+        .createServer((req, res) => {
+          res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+          res.end("أثير يعمل الآن.\n");
+        })
+        .listen(port, () => console.log("خادم الحالة يعمل على المنفذ " + port));
+    } catch (e) {
+      console.error("تعذر تشغيل خادم الحالة:", e.message);
+    }
+  }
+
   const { state, saveCreds } = await useMultiFileAuthState("./auth");
 
   // هذه البيئة تمنع TLS المباشر (بوابة الخروج تعيد "wrong version number")
