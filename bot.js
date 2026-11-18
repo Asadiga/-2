@@ -6,7 +6,7 @@
 //   /projects                — عرض المشاريع الحالية
 //   /note <نص>               — حفظ ملاحظة
 // أي رسالة أخرى: رد ذكاء اصطناعي (عبر askAI) أو رد احتياطي بدون مفتاح.
-const { loadMemory, checkAndCountUsage, addProject, listProjects, addNote } = require("./memory");
+const { loadMemory, checkAndCountUsage, addProject, listProjects, addNote, addAppointment, listAppointments } = require("./memory");
 
 const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || "0", 10); // 0 = بلا حد يومي
 const BOT_NAME = process.env.BOT_NAME || "أثير";
@@ -154,7 +154,10 @@ function helpText() {
     "مثال: /project فيلدورا | مدينة حياة واقعية في روبلوكس\n" +
     "/projects — عرض مشاريعك الحالية\n" +
     "/note <نص> — حفظ ملاحظة\n" +
-    "مثال: /note راجع درس الجامعة غداً\n\n" +
+    "مثال: /note راجع درس الجامعة غداً\n" +
+    "/appointment <التاريخ> <الوقت> | <الموعد> — حجز موعد\n" +
+    "مثال: /appointment 2026-11-20 10:00 | موعد طبيب\n" +
+    "/appointments — عرض مواعيدك\n\n" +
     "أي رسالة أخرى أرد عليها كمساعد ذكاء اصطناعي.\n" +
     (DAILY_LIMIT > 0
       ? "الحد اليومي للرسائل: " + DAILY_LIMIT + " رسالة (قابل للتعديل من DAILY_LIMIT في .env)."
@@ -205,6 +208,31 @@ async function handleMessage(text, senderName) {
     if (!noteText) return "اكتب نص الملاحظة بعد /note.";
     addNote(memory, noteText);
     return "تم حفظ الملاحظة: " + noteText;
+  }
+
+  if (clean.startsWith("/appointment ")) {
+    const rest = clean.slice("/appointment ".length).trim();
+    const parts = rest.split("|");
+    const when = (parts[0] || "").trim().split(/\s+/);
+    const date = when[0] || "";
+    const time = when[1] || "";
+    const title = (parts[1] || "").trim() || "موعد";
+    if (!date) return "اكتب التاريخ والوقت، مثال: /appointment 2026-11-20 10:00 | موعد طبيب";
+    const appt = addAppointment(memory, date, time, title);
+    return "تم حجز موعدك: " + appt.title + " — " + appt.date + (appt.time ? " " + appt.time : "") + "\nعدد مواعيدك الآن: " + memory.appointments.length;
+  }
+
+  if (clean === "/appointments" || clean === "/مواعيد" || clean === "مواعيدي") {
+    const appts = listAppointments(memory);
+    if (!appts.length) return "لا توجد مواعيد محفوظة بعد. احجز موعداً بالأمر: /appointment <التاريخ> <الوقت> | <الموعد>";
+    return (
+      "مواعيدك (" + appts.length + "):\n" +
+      appts.map((a, i) => (i + 1) + ". " + a.title + " — " + a.date + (a.time ? " " + a.time : "") + " (" + a.status + ")").join("\n")
+    );
+  }
+
+  if (/^احجز موعد/.test(clean)) {
+    return "لحجز موعد أرسل: /appointment <التاريخ> <الوقت> | <الموعد>\nمثال: /appointment 2026-11-20 10:00 | موعد طبيب";
   }
 
   if (clean.startsWith("/")) {

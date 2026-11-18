@@ -13,6 +13,7 @@ const DEFAULT_MEMORY = {
     notes: []
   },
   projects: [],
+  appointments: [],
   usage: {
     date: null, // YYYY-MM-DD
     count: 0
@@ -28,7 +29,9 @@ function loadMemory() {
         ...DEFAULT_MEMORY,
         ...parsed,
         user: { ...DEFAULT_MEMORY.user, ...(parsed.user || {}) },
-        usage: { ...DEFAULT_MEMORY.usage, ...(parsed.usage || {}) }
+        usage: { ...DEFAULT_MEMORY.usage, ...(parsed.usage || {}) },
+        projects: parsed.projects || [],
+        appointments: parsed.appointments || []
       };
     }
   } catch (err) {
@@ -84,6 +87,25 @@ function addNote(memory, text) {
   return note;
 }
 
+function addAppointment(memory, date, time, title) {
+  const appt = {
+    id: Date.now(),
+    date: (date || "").trim(),
+    time: (time || "").trim(),
+    title: (title || "").trim(),
+    createdAt: new Date().toISOString(),
+    status: "محجوز"
+  };
+  memory.appointments.push(appt);
+  memory.appointments.sort((a, b) => (a.date + " " + a.time).localeCompare(b.date + " " + b.time));
+  saveMemory(memory);
+  return appt;
+}
+
+function listAppointments(memory) {
+  return memory.appointments || [];
+}
+
 module.exports = {
   MEMORY_PATH,
   loadMemory,
@@ -92,5 +114,7 @@ module.exports = {
   addProject,
   listProjects,
   addNote,
+  addAppointment,
+  listAppointments,
   todayString
 };
