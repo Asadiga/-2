@@ -14,7 +14,7 @@ async function browsePage(url) {
     return { ok: false, text: "المتصفح غير مثبت بعد في جهاز أثير. أخبر كاي ليثبته." };
   }
   let fullUrl = (url || "").trim();
-  if (!fullUrl) return { ok: false, text: "اكتب رابطاً، مثال: /browse https://example.com" };
+  if (!fullUrl) return { ok: false, text: "اكتب رابط الموقع، مثال: افتح موقع example.com" };
   if (!/^https?:\/\//i.test(fullUrl)) fullUrl = "https://" + fullUrl;
   let browser = null;
   try {

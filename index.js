@@ -146,7 +146,20 @@ async function start() {
 
       try {
         const reply = await handleMessage(text, sender);
-        await sock.sendMessage(msg.key.remoteJid, { text: reply });
+        // قد يعيد handleMessage نصاً، أو كائن وسائط { text, mediaUrl }
+        // (مثل تصميم صورة) فيرسل كصورة واتساب مع تعليق.
+        if (reply && typeof reply === "object") {
+          if (reply.mediaUrl) {
+            await sock.sendMessage(msg.key.remoteJid, {
+              image: { url: reply.mediaUrl },
+              caption: reply.text || ""
+            });
+          } else {
+            await sock.sendMessage(msg.key.remoteJid, { text: reply.text || "تم." });
+          }
+        } else {
+          await sock.sendMessage(msg.key.remoteJid, { text: reply });
+        }
       } catch (err) {
         console.error("خطأ أثناء معالجة رسالة:", err.message);
         try {
