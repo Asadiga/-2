@@ -1,1 +1,21 @@
-{"dependencies":{"@whiskeysockets/baileys":"^6.7.0","dotenv":"^16.4.5","https-proxy-agent":"^9.1.0","qrcode":"^1.5.4","qrcode-terminal":"^0.12.0"},"description":"بوت واتساب بسيط مثل Tab: مساعد ذكاء اصطناعي يتذكر المشاريع والملاحظات، مع حد استخدام يومي قابل للتعديل.","engines":{"node":">=18"},"main":"index.js","name":"tab-bot","scripts":{"start":"node index.js"},"type":"commonjs","version":"1.0.0"}
+{
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.0",
+    "dotenv": "^16.4.5",
+    "https-proxy-agent": "^9.1.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "playwright": "^1.49.0"
+  },
+  "description": "بوت واتساب بسيط مثل Tab: مساعد ذكاء اصطناعي يتذكر المشاريع والملاحظات، بدون حد يومي افتراضياً.",
+  "engines": {
+    "node": ">=18"
+  },
+  "main": "index.js",
+  "name": "tab-bot",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "type": "commonjs",
+  "version": "1.0.0"
+}

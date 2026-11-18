@@ -7,6 +7,7 @@
 //   /note <نص>               — حفظ ملاحظة
 // أي رسالة أخرى: رد ذكاء اصطناعي (عبر askAI) أو رد احتياطي بدون مفتاح.
 const { loadMemory, checkAndCountUsage, addProject, listProjects, addNote, addAppointment, listAppointments } = require("./memory");
+const { browsePage } = require("./browser");
 
 const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || "0", 10); // 0 = بلا حد يومي
 const BOT_NAME = process.env.BOT_NAME || "أثير";
@@ -157,7 +158,9 @@ function helpText() {
     "مثال: /note راجع درس الجامعة غداً\n" +
     "/appointment <التاريخ> <الوقت> | <الموعد> — حجز موعد\n" +
     "مثال: /appointment 2026-11-20 10:00 | موعد طبيب\n" +
-    "/appointments — عرض مواعيدك\n\n" +
+    "/appointments — عرض مواعيدك\n" +
+    "/browse <رابط> — فتح موقع في متصفح أثير الخاص\n" +
+    "مثال: /browse https://example.com\n\n" +
     "أي رسالة أخرى أرد عليها كمساعد ذكاء اصطناعي.\n" +
     (DAILY_LIMIT > 0
       ? "الحد اليومي للرسائل: " + DAILY_LIMIT + " رسالة (قابل للتعديل من DAILY_LIMIT في .env)."
@@ -233,6 +236,13 @@ async function handleMessage(text, senderName) {
 
   if (/^احجز موعد/.test(clean)) {
     return "لحجز موعد أرسل: /appointment <التاريخ> <الوقت> | <الموعد>\nمثال: /appointment 2026-11-20 10:00 | موعد طبيب";
+  }
+
+  if (clean.startsWith("/browse ")) {
+    const url = clean.slice("/browse ".length).trim();
+    const result = await browsePage(url);
+    if (!result.ok) return result.text;
+    return "فتحت الصفحة في متصفحي: " + (result.title || result.url) + "\n" + result.url + "\n\n" + result.text;
   }
 
   if (clean.startsWith("/")) {
