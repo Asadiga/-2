@@ -12,6 +12,37 @@ const {
 } = require("@whiskeysockets/baileys");
 const { handleMessage } = require("./bot");
 
+// هوية المالك: رقم هاتفه، ومعرّف واتساب LID الخاص به.
+// واتساب يرسل أحياناً رسائل المالك بمعرّف LID (مثل 158239916294218@lid)
+// بدلاً من رقم الهاتف، فكان البوت يتجاهلها خطأً. نقبل الاثنين.
+// OWNER_LID في .env، وافتراضياً معرّف LID المرصود لرسائل المالك.
+const OWNER_NUMBER = (process.env.OWNER_NUMBER || "249127271642").replace(/\D/g, "");
+const OWNER_LID = (process.env.OWNER_LID || "158239916294218").replace(/\D/g, "");
+
+// يستخرج كل معرّفات المرسل المحتملة من رسالة Baileys (رقم هاتف أو LID).
+function senderIdentifiers(msg) {
+  const key = (msg && msg.key) || {};
+  const raw = [
+    key.remoteJid,
+    key.participant,
+    key.senderLid,
+    key.participantLid,
+    key.remoteJidAlt,
+    key.participantAlt,
+    msg.participant,
+    msg.senderLid
+  ].filter(Boolean);
+  return raw.map((jid) => String(jid).split("@")[0].replace(/\D/g, "")).filter(Boolean);
+}
+
+// هل هذه الرسالة من المالك؟ تقبل رقم الهاتف أو LID، في المحادثة الخاصة فقط.
+function isOwnerMessage(msg) {
+  const key = (msg && msg.key) || {};
+  if (String(key.remoteJid || "").endsWith("@g.us")) return false; // مجموعات: تجاهل دائماً
+  const ids = senderIdentifiers(msg);
+  return ids.some((id) => id === OWNER_NUMBER || (OWNER_LID && id === OWNER_LID));
+}
+
 async function start() {
   // خادم HTTP صغير لخدمات الويب المجانية (مثل Render Web Service):
   // يرد على المنفذ PORT حتى لا تعتبر الخدمة متوقفة.
@@ -123,17 +154,21 @@ async function start() {
       // تجاهل رسائل الحالة (status) والقنوات
       if (msg.key.remoteJid === "status@broadcast") continue;
 
-      // خاص بصاحبه فقط: يرد فقط على رقم الصادق، ويتجاهل أي رقم آخر.
-      // OWNER_NUMBER في .env بصيغة دولية بلا +، مثال 249127271642.
-      const ownerNumber = (process.env.OWNER_NUMBER || "249127271642").replace(/\D/g, "");
-      const senderJid = msg.key.participant || msg.key.remoteJid || "";
-      const senderNumber = senderJid.split("@")[0].replace(/\D/g, "");
-      // تجاهل المجموعات: الرد فقط في محادثة خاصة مع الصادق.
+      // خاص بصاحبه فقط: يرد فقط على رقم الصادق أو معرّف LID الخاص به،
+      // ويتجاهل أي رقم أو معرّف آخر. المجموعات تُتجاهل دائماً.
+      // سجّل تشخيصي: معرّفات المرسل فقط، دون نص الرسالة.
+      console.log(
+        "معرّفات المرسل: remoteJid=" + (msg.key.remoteJid || "") +
+        " participant=" + (msg.key.participant || "") +
+        " senderLid=" + (msg.key.senderLid || "") +
+        " participantLid=" + (msg.key.participantLid || "")
+      );
       if (msg.key.remoteJid.endsWith("@g.us")) continue;
-      if (ownerNumber && senderNumber !== ownerNumber) {
-        console.log("تجاهل رسالة من رقم غير مصرّح: " + senderNumber);
+      if (!isOwnerMessage(msg)) {
+        console.log("تجاهل رسالة من رقم غير مصرّح: " + senderIdentifiers(msg).join(","));
         continue;
       }
+      console.log("رسالة من المالك.");
 
       const text =
         msg.message.conversation ||
@@ -186,7 +221,11 @@ async function start() {
   });
 }
 
-start().catch((err) => {
-  console.error("فشل تشغيل البوت:", err);
-  process.exit(1);
-});
+if (require.main === module) {
+  start().catch((err) => {
+    console.error("فشل تشغيل البوت:", err);
+    process.exit(1);
+  });
+}
+
+module.exports = { isOwnerMessage, senderIdentifiers, OWNER_NUMBER, OWNER_LID };
