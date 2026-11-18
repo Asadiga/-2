@@ -8,7 +8,7 @@
 // أي رسالة أخرى: رد ذكاء اصطناعي (عبر askAI) أو رد احتياطي بدون مفتاح.
 const { loadMemory, checkAndCountUsage, addProject, listProjects, addNote } = require("./memory");
 
-const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || "50", 10);
+const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || "0", 10); // 0 = بلا حد يومي
 const BOT_NAME = process.env.BOT_NAME || "مساعد";
 
 // دالة الذكاء الاصطناعي القابلة للتبديل.
@@ -84,7 +84,9 @@ function helpText() {
     "/note <نص> — حفظ ملاحظة\n" +
     "مثال: /note راجع درس الجامعة غداً\n\n" +
     "أي رسالة أخرى أرد عليها كمساعد ذكاء اصطناعي.\n" +
-    "الحد اليومي للرسائل: " + DAILY_LIMIT + " رسالة (قابل للتعديل من DAILY_LIMIT في .env)."
+    (DAILY_LIMIT > 0
+      ? "الحد اليومي للرسائل: " + DAILY_LIMIT + " رسالة (قابل للتعديل من DAILY_LIMIT في .env)."
+      : "لا يوجد حد يومي للرسائل.")
   );
 }
 
@@ -95,8 +97,8 @@ async function handleMessage(text, senderName) {
   const clean = (text || "").trim();
   if (!clean) return "أرسل لي رسالة أو استخدم /help لعرض الأوامر.";
 
-  // حد الاستخدام اليومي أولاً (مثل مشكلة Tab السابقة مع الحد اليومي).
-  if (!checkAndCountUsage(memory, DAILY_LIMIT)) {
+  // بلا حد يومي افتراضياً: إن كان DAILY_LIMIT أكبر من 0 فقط يُطبَّق الحد.
+  if (DAILY_LIMIT > 0 && !checkAndCountUsage(memory, DAILY_LIMIT)) {
     return (
       "وصلت اليوم إلى الحد اليومي للاستخدام (" + DAILY_LIMIT + " رسالة).\n" +
       "سأكون متاحاً مرة أخرى غداً، أو يمكنك رفع الحد من DAILY_LIMIT في ملف .env ثم إعادة تشغيل البوت."
