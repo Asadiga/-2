@@ -17,60 +17,123 @@ const BOT_NAME = process.env.BOT_NAME || "مساعد";
 // لتستدعي واجهة المزود الذي تختاره، مع إبقاء المفتاح في env فقط.
 async function askAI(userText, memory) {
   const apiKey = process.env.AI_API_KEY;
-  if (!apiKey) {
-    return (
-      "وصلتني رسالتك: \"" + userText + "\".\n" +
-      "الذكاء الاصطناعي غير مفعّل بعد في هذا البوت، لأن مفتاح API غير مضبوط.\n" +
-      "أضف AI_API_KEY في ملف .env ثم أعد تشغيل البوت، أو استخدم الأوامر:\n" +
-      "/help — المساعدة\n" +
-      "/projects — عرض مشاريعك\n" +
-      "/project <الاسم> | <وصف> — إضافة مشروع\n" +
-      "/note <نص> — حفظ ملاحظة"
-    );
-  }
-
-  // مثال عام (عدّله حسب مزودك): طلب HTTP إلى AI_API_URL إن وُجد.
-  // لا يوجد هنا أي مفتاح حقيقي مضمّن؛ المفتاح يأتي من env فقط.
   const apiUrl = process.env.AI_API_URL;
   const model = process.env.AI_MODEL || "";
-  if (!apiUrl) {
-    return "مفتاح AI_API_KEY مضبوط، لكن AI_API_URL غير مضبوط. أضف رابط واجهة المزود في .env.";
+
+  // 1) مزود المستخدم أولاً إن كان مضبوطاً (مفتاح + رابط).
+  if (apiKey && apiUrl) {
+    try {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + apiKey
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: "system",
+              content:
+                "أنت مساعد ذكاء اصطناعي يتحدث العربية. أجب عن أي سؤال أو موضوع دون قيود على المواضيع. المستخدم اسمه " +
+                (memory.user.name || "الصادق") +
+                ". مشاريعه الحالية: " +
+                (memory.projects.map((p) => p.name).join("، ") || "لا يوجد") +
+                "."
+            },
+            { role: "user", content: userText }
+          ]
+        })
+      });
+      const data = await res.json();
+      const text =
+        data &&
+        data.choices &&
+        data.choices[0] &&
+        data.choices[0].message &&
+        data.choices[0].message.content;
+      if (text) return text;
+    } catch (err) {
+      console.error("خطأ في طلب الذكاء الاصطناعي:", err.message);
+    }
   }
-  try {
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + apiKey
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: "system",
-            content:
-              "أنت مساعد ذكاء اصطناعي يتحدث العربية. المستخدم اسمه " +
-              (memory.user.name || "الصادق") +
-              ". مشاريعه الحالية: " +
-              (memory.projects.map((p) => p.name).join("، ") || "لا يوجد") +
-              "."
-          },
-          { role: "user", content: userText }
-        ]
-      })
-    });
-    const data = await res.json();
-    const text =
-      data &&
-      data.choices &&
-      data.choices[0] &&
-      data.choices[0].message &&
-      data.choices[0].message.content;
-    return text || "وصلني رد فارغ من مزود الذكاء الاصطناعي. حاول مرة أخرى.";
-  } catch (err) {
-    console.error("خطأ في طلب الذكاء الاصطناعي:", err.message);
-    return "حدث خطأ أثناء الاتصال بالذكاء الاصطناعي. حاول مرة أخرى لاحقاً.";
+
+  // 2) بلا مفتاح: ذكاء اصطناعي مجاني مفتوح (Pollinations) حتى يرد البوت على أي شيء.
+  // الخدمة المجانية تحد نفسها إلى رد كل 45 ثانية تقريباً لكل IP، فنعيد المحاولة
+  // مرة بعد الانتظار المطلوب بدلاً من رفض الرسالة.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const prompt =
+        "أنت مساعد ذكاء اصطناعي يتحدث العربية. أجب عن أي سؤال أو موضوع دون قيود على المواضيع. المستخدم اسمه " +
+        (memory.user.name || "الصادق") +
+        ". مشاريعه الحالية: " +
+        (memory.projects.map((p) => p.name).join("، ") || "لا يوجد") +
+        ". سؤال المستخدم: " +
+        userText;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(
+        "https://text.pollinations.ai/" + encodeURIComponent(prompt) + "?model=openai",
+        { signal: controller.signal }
+      );
+      clearTimeout(timer);
+      const text = (await res.text()).trim();
+      if (!text) continue;
+      const waitMatch = text.match(/wait (\d+) seconds/i);
+      if (waitMatch && attempt === 0) {
+        const waitMs = (parseInt(waitMatch[1], 10) + 2) * 1000;
+        console.log("الخدمة المجانية طلبت الانتظار " + waitMs + "ms، سأعيد المحاولة.");
+        await new Promise((r) => setTimeout(r, waitMs));
+        continue;
+      }
+      if (waitMatch) return localFallback(userText, memory);
+      return text;
+    } catch (err) {
+      console.error("خطأ في الذكاء الاصطناعي المجاني:", err.message);
+    }
   }
+
+  // 3) احتياطي محلي بسيط إن تعذر الاتصال: رد على التحيات والحساب والوقت،
+  // ولا نرفض أي رسالة.
+  return localFallback(userText, memory);
+}
+
+function localFallback(userText, memory) {
+  const t = (userText || "").trim();
+  const lower = t.toLowerCase();
+  if (/^(سلام|مرحبا|مرحباً|هلا|اهلا|أهلا|صباح|مساء|hi|hello|hey)\b/.test(lower)) {
+    return "أهلاً " + (memory.user.name || "بك") + "! كيف أقدر أساعدك اليوم؟ اسألني عن أي شيء، أو استخدم /help لعرض الأوامر.";
+  }
+  if (/من أنت|من انت|who are you/.test(lower)) {
+    return "أنا " + BOT_NAME + "، مساعدك في واتساب. أرد على أي سؤال أو موضوع، وأحفظ مشاريعك وملاحظاتك. اسألني عن أي شيء.";
+  }
+  const math = t.match(/^\s*(-?[\d.]+)\s*([+\-*/×÷])\s*(-?[\d.]+)\s*$/);
+  if (math) {
+    const a = parseFloat(math[1]);
+    const b = parseFloat(math[3]);
+    const op = math[2];
+    let r = null;
+    if (op === "+" || op === "-") r = op === "+" ? a + b : a - b;
+    if (op === "*" || op === "×") r = a * b;
+    if ((op === "/" || op === "÷") && b !== 0) r = a / b;
+    if (r !== null) return t + " = " + r;
+  }
+  if (/الساعة|الوقت|التاريخ|اليوم/.test(t)) {
+    return "الآن: " + new Date().toLocaleString("ar", { timeZone: "Africa/Khartoum" }) + ".";
+  }
+  if (/مشاريع/.test(t)) {
+    const projects = listProjects(memory);
+    if (!projects.length) return "لا توجد مشاريع محفوظة بعد. أضف مشروعاً بالأمر: /project <الاسم> | <وصف>";
+    return "مشاريعك (" + projects.length + "):\n" + projects.map((p, i) => (i + 1) + ". " + p.name).join("\n");
+  }
+  return (
+    "وصلتني رسالتك: \"" + t + "\".\n" +
+    "تعذر الاتصال بالذكاء الاصطناعي الآن، لكنني سأرد عليك فور عودة الاتصال. جرب مرة أخرى بعد قليل، أو استخدم الأوامر:\n" +
+    "/help — المساعدة\n" +
+    "/projects — عرض مشاريعك\n" +
+    "/project <الاسم> | <وصف> — إضافة مشروع\n" +
+    "/note <نص> — حفظ ملاحظة"
+  );
 }
 
 function helpText() {
