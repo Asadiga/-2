@@ -1,0 +1,8 @@
+node_modules
+.auth
+auth
+data
+.env
+qr.png
+qr.txt
+pairing.txt

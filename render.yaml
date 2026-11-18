@@ -1,0 +1,15 @@
+services:
+  - type: worker
+    name: atheer-bot
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DAILY_LIMIT
+        value: "0"
+      - key: BOT_NAME
+        value: أثير
+      - key: OWNER_NUMBER
+        value: "249127271642"
+      - key: PAIRING_NUMBER
+        value: "249997560126"
