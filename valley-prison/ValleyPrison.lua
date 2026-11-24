@@ -1,5 +1,5 @@
 --[[
-    ⛓️ سكربت سجن الوادي — Valley Prison Script v1
+    ⛓️ سكربت الصادق — Alsadig Script v1
     تطوير الصادق — Developed by Alsadig
     ============================================================
     للعبة Valley Prison [V3] (سجن الوادي) — سجن ولعب أدوار.
@@ -13,14 +13,14 @@
     • كشف اللاعبين (ESP) بألوان فرقهم + الاسم والمسافة والصحة
     • كشف الأغراض (بطاقة، مفك، قميص، بنطال، سترة، سلاح، سكين...)
     • تصويب صامت (Silent Aim) على الحراس والشرطة — الرصاصة تذهب
-      للهدف دون أن تتحرك الكاميرا، مع دائرة مدى الرؤية
+      للهدف دون أن تتحرك الكاميرا، مع دائرة كبيرة: أي شخص يدخلها يجيه هيدشوت
     • تصويب عادي بالكاميرا كخيار ثانوي (اختياري)
     • يعمل على Delta Mobile باللمس كاملاً — كل الميزات من القائمة
     • نقل فوري: 5 مواقع محفوظة + أقرب لاعب + اتباع أي لاعب
 
     طريقة التشغيل:
     1) انسخ هذا السكربت كاملاً
-    2) الصقه في Solara واضغط تشغيل (Execute) وأنت داخل اللعبة
+    2) الصقه في دلتا (أو Solara) واضغط تشغيل (Execute) وأنت داخل اللعبة
     3) ستظهر قائمة التحكم — اسحبها لأي مكان يعجبك
 
     الأوامر من الشات ما زالت تعمل أيضاً (احتياط):
@@ -98,7 +98,7 @@ local itemEspOn = false
 
 -- التصويب التلقائي
 local aimMode = "hold" -- hold | always
-local aimFov = 90 -- درجات (30 - 180)
+local aimFov = 180 -- درجات (30 - 180) — دائرة كبيرة: أي شخص يدخل الدائرة يجيه هيدشوت
 local aimRange = 200 -- ستود (100 - 1000)
 local aimSmooth = true
 local aimVisibleOnly = true -- فحص الرؤية بالشعاع
@@ -804,6 +804,8 @@ local function updateFovCircle()
 	if not cam then return end
 	local vp = cam.ViewportSize
 	local radius = math.tan(math.rad(aimFov / 2)) / math.tan(math.rad(cam.FieldOfView / 2)) * (math.min(vp.X, vp.Y) / 2)
+	-- دائرة كبيرة: حدّ أقصى يملأ الشاشة تقريباً حتى لا تختفي عند 180°
+	radius = math.min(radius, math.min(vp.X, vp.Y) * 0.48)
 	circle.Size = UDim2.new(0, radius * 2, 0, radius * 2)
 	local stroke = circle:FindFirstChildOfClass("UIStroke")
 	if stroke then
@@ -979,6 +981,13 @@ local function sectionLabel(parent, text)
 	l.TextSize = 16
 	l.TextXAlignment = Enum.TextXAlignment.Right
 	l.Parent = parent
+	local bar = Instance.new("Frame")
+	bar.Size = UDim2.new(1, 0, 0, 2)
+	bar.Position = UDim2.new(0, 0, 1, -2)
+	bar.BackgroundColor3 = GOLD
+	bar.BorderSizePixel = 0
+	bar.Parent = l
+	addGoldGradient(bar)
 	return l
 end
 
@@ -1097,7 +1106,7 @@ local function buildGui()
 		pcall(function() screenGui:Destroy() end)
 	end
 	screenGui = Instance.new("ScreenGui")
-	screenGui.Name = "ValleyPrisonGui"
+	screenGui.Name = "AlsadigGui"
 	screenGui.ResetOnSpawn = false
 	screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -1114,10 +1123,12 @@ local function buildGui()
 	fcc.CornerRadius = UDim.new(1, 0)
 	fcc.Parent = ui.fovCircle
 	local fs = Instance.new("UIStroke")
-	fs.Thickness = 2
-	fs.Color = TEXT_WHITE
-	fs.Transparency = 0.2
+	fs.Thickness = 3
+	fs.Color = GOLD
+	fs.Transparency = 0.1
 	fs.Parent = ui.fovCircle
+	ui.fovCircle.BackgroundColor3 = GOLD
+	ui.fovCircle.BackgroundTransparency = 0.94
 
 	ui.fovDot = Instance.new("Frame")
 	ui.fovDot.Name = "FovDot"
@@ -1153,6 +1164,16 @@ local function buildGui()
 	fst.Color = GOLD_DARK
 	fst.Thickness = 2
 	fst.Parent = floatButton
+	-- نبض ذهبي خفيف للزر العائم
+	task.spawn(function()
+		while floatButton.Parent do
+			TweenService:Create(floatButton, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Size = UDim2.new(0, 72, 0, 72) }):Play()
+			task.wait(0.9)
+			if not floatButton.Parent then break end
+			TweenService:Create(floatButton, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { Size = UDim2.new(0, 68, 0, 68) }):Play()
+			task.wait(0.9)
+		end
+	end)
 
 	-- أزرار الصعود والنزول أثناء الطيران (تظهر فقط عند الطيران)
 	ui.flyUpBtn = Instance.new("TextButton")
@@ -1201,7 +1222,7 @@ local function buildGui()
 	menuFrame.Draggable = true
 	menuFrame.Parent = screenGui
 	local mc = Instance.new("UICorner")
-	mc.CornerRadius = UDim.new(0, 14)
+	mc.CornerRadius = UDim.new(0, 18)
 	mc.Parent = menuFrame
 	local ms = Instance.new("UIStroke")
 	ms.Color = Color3.fromRGB(60, 60, 80)
@@ -1229,7 +1250,7 @@ local function buildGui()
 	title.Size = UDim2.new(1, -54, 1, 0)
 	title.Position = UDim2.new(0, 12, 0, 0)
 	title.BackgroundTransparency = 1
-	title.Text = "⛓️ سجن الوادي"
+	title.Text = "⛓️ الصادق"
 	title.TextColor3 = Color3.fromRGB(25, 18, 5)
 	title.Font = Enum.Font.GothamBold
 	title.TextSize = 19
@@ -1283,7 +1304,7 @@ local function buildGui()
 	ui.statusLabel.TextColor3 = TEXT_WHITE
 	ui.statusLabel.Font = Enum.Font.GothamBold
 	ui.statusLabel.TextSize = 14
-	ui.statusLabel.Text = "⛓️ سجن الوادي — جاهز"
+	ui.statusLabel.Text = "⛓️ الصادق — جاهز"
 	ui.statusLabel.Parent = scroll
 	local slc = Instance.new("UICorner")
 	slc.CornerRadius = UDim.new(0, 10)
@@ -1430,7 +1451,7 @@ local function buildGui()
 	local footer = Instance.new("TextLabel")
 	footer.Size = UDim2.new(1, 0, 0, 26)
 	footer.BackgroundTransparency = 1
-	footer.Text = "تطوير الصادق • Valley Prison v1"
+	footer.Text = "الصادق • Valley Prison v1"
 	footer.TextColor3 = GOLD
 	footer.Font = Enum.Font.GothamBold
 	footer.TextSize = 14
@@ -1582,7 +1603,7 @@ end
 
 -- ================= الأوامر من الشات (احتياط — القائمة هي الأساس) =================
 local function printHelp()
-	print("⛓️ أوامر سجن الوادي (القائمة باللمس هي الأساس):")
+	print("⛓️ أوامر الصادق (القائمة باللمس هي الأساس):")
 	print(";god, ;fly, ;speed <16/22/30/50>, ;jump <50/70/100>, ;sprint")
 	print(";noclip, ;esp, ;itemesp, ;menu, ;help")
 	print(";aim (تصويب صامت), ;aimcam (تصويب عادي), ;aimfov <30-180>")
@@ -1700,7 +1721,7 @@ LocalPlayer.Chatted:Connect(function(msg)
 end)
 
 -- ================= التشغيل =================
-print("⛓️ سكربت سجن الوادي v1 يعمل! تطوير الصادق — اضغط زر ⛓️ لفتح القائمة")
+print("⛓️ سكربت الصادق v1 يعمل! — اضغط زر ⛓️ لفتح القائمة")
 printHelp()
 installMouseHook()
 buildGui()
