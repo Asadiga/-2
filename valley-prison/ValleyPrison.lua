@@ -1,5 +1,5 @@
 --[[
-    ⛓️ سكربت الصادق الشامل v1 — Alsadig Hub v1
+    ⛓️ سكربت الصادق الشامل v2 — Alsadig Hub v2
     تطوير الصادق — Developed by Alsadig
     ============================================================
     كتالوج شامل يعمل في أي ماب (روبلكس) — كل الميزات في قائمة واحدة.
@@ -44,6 +44,11 @@
       فيديو يدّعي أنه يعطيك فلوساً أو خبرة مجاناً فهو نصب لسرقة حسابك.
     • الوضع الإلهي والطيران واختراق الجدران وESP كلها في جهازك فقط
       (client-side)، وقد يهزمها تحقق السيرفر فلا تعمل في بعض المابات.
+    • في المابات التي يطبّق فيها السيرفر الضرر (مثل سجن الوادي)،
+      الوضع الإلهي لا يضمن النجاة — السيرفر هو الذي يقرر الموت؛
+      هذه الحلقة تعيد صحتك بأسرع ما يمكن فقط.
+    • الضرر هو ضرر السلاح نفسه ويقرره السيرفر — الهيدشوت يعطي
+      ضرر رأس السلاح، ولا يجبر القتل أبداً.
     • التصويب الصامت ملاحَظ بسهولة من اللاعبين الآخرين ومن إدارة
       اللعبة، واستخدامه قد يؤدي إلى حظر حسابك (بان) — استخدمه على
       مسؤوليتك الخاصة، ويفضل إبقاؤه مغلقاً إلا عند الحاجة.
@@ -273,6 +278,40 @@ local function isGunRemoteName(nameLower)
 	return false
 end
 
+-- يعيد كتابة أي موضع تصويب داخل وسيط: Vector3/CFrame في المستوى
+-- الأعلى أو متداخلاً داخل جدول (حتى عمق 2)، وأي جزء جسم (BasePart
+-- يخص شخصية) يستبدل برأس الهدف — فالعديد من أنظمة الأسلحة ترسل
+-- وسيطاً واحداً جدولاً فيه الموضع أو الجزء المصاب.
+local function rewriteAimArg(v, pos, headPart, depth)
+	local t = typeof(v)
+	if t == "Vector3" then
+		if v.Magnitude > 2 then return pos, true end
+		return v, false
+	elseif t == "CFrame" then
+		return CFrame.new(pos), true
+	elseif t == "Instance" then
+		if headPart and v:IsA("BasePart") then
+			local model = v:FindFirstAncestorOfClass("Model")
+			if model and model:FindFirstChildOfClass("Humanoid") then
+				return headPart, true
+			end
+		end
+		return v, false
+	elseif t == "table" and depth < 2 then
+		local changed = false
+		local copy = {}
+		for k, val in pairs(v) do
+			local newVal, ch = rewriteAimArg(val, pos, headPart, depth + 1)
+			copy[k] = newVal
+			if ch then changed = true end
+		end
+		if changed then return copy, true end
+		return v, false
+	end
+	return v, false
+end
+
+
 local function installRemoteHook()
 	if remoteHookInstalled then return end
 	if not hookmetamethod or not getnamecallmethod then
@@ -283,8 +322,8 @@ local function installRemoteHook()
 		local oldNamecall
 		local function hook(self, ...)
 			local method = getnamecallmethod()
-			if method == "FireServer" and silentAimOn and aimMethod == "remote" and hitRollPass then
-				local pos, _part = getAimPoint()
+			if (method == "FireServer" or method == "InvokeServer") and silentAimOn and aimMethod == "remote" and hitRollPass then
+				local pos, headPart = getAimPoint()
 				if pos then
 					local remoteName = ""
 					pcall(function()
@@ -294,11 +333,9 @@ local function installRemoteHook()
 						local args = { ... }
 						local changed = false
 						for i, v in ipairs(args) do
-							if typeof(v) == "Vector3" and v.Magnitude > 2 then
-								args[i] = pos
-								changed = true
-							elseif typeof(v) == "CFrame" then
-								args[i] = CFrame.new(pos)
+							local newVal, ch = rewriteAimArg(v, pos, headPart, 0)
+							if ch then
+								args[i] = newVal
 								changed = true
 							end
 						end
@@ -961,19 +998,43 @@ end)
 
 -- ================= الحماية (وضع إلهي) =================
 local godOn = false
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if godOn then
-            pcall(function()
-                local hum = getHumanoid(getCharacter())
-                if hum then
-                    hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-                    if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
-                end
-            end)
-        end
-    end
+
+-- يعيد الصحة للكاملة فوراً ويمنع حالة الموت
+local function restoreGodHealth()
+	pcall(function()
+		local hum = getHumanoid(getCharacter())
+		if hum then
+			hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+			if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+		end
+	end)
+end
+
+-- يربط استعادة الصحة الفورية بحدث HealthChanged للشخصية الحالية
+-- (يعاد ربطه عند كل شخصية جديدة)
+local godHealthConn = nil
+local godBoundHum = nil
+local function bindGodHealth()
+	local hum = getHumanoid(getCharacter())
+	if hum == godBoundHum and godHealthConn then return end
+	if godHealthConn then
+		pcall(function() godHealthConn:Disconnect() end)
+		godHealthConn = nil
+	end
+	godBoundHum = hum
+	if hum then
+		godHealthConn = hum.HealthChanged:Connect(function()
+			if godOn then restoreGodHealth() end
+		end)
+	end
+end
+
+-- حلقة كل إطار: تعيد الصحة وتمنع حالة الموت باستمرار
+RunService.Heartbeat:Connect(function()
+	if godOn then
+		bindGodHealth()
+		restoreGodHealth()
+	end
 end)
 
 -- ================= السرعة والقفز =================
@@ -1207,6 +1268,7 @@ LocalPlayer.CharacterAdded:Connect(function()
         if ui.flyDownBtn then ui.flyDownBtn.Visible = false end
     end
     task.wait(0.5)
+    bindGodHealth()
     applySpeed()
     pcall(refreshUI)
 end)
@@ -1665,7 +1727,7 @@ local function buildGui()
 	local footer = Instance.new("TextLabel")
 	footer.Size = UDim2.new(1, 0, 0, 26)
 	footer.BackgroundTransparency = 1
-	footer.Text = "الصادق • الشامل v1"
+	footer.Text = "الصادق • الشامل v2"
 	footer.TextColor3 = GOLD
 	footer.Font = Enum.Font.GothamBold
 	footer.TextSize = 14
@@ -1820,7 +1882,7 @@ function refreshPlayerList(force)
 end
 
 -- ================= التشغيل =================
-print("⛓️ سكربت الصادق الشامل v1 يعمل! اضغط زر ⛓️ لفتح الكتالوج")
+print("⛓️ سكربت الصادق الشامل v2 يعمل! اضغط زر ⛓️ لفتح الكتالوج")
 installAntiKick()
 installMouseHook()
 installRemoteHook()
