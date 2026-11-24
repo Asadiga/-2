@@ -1,5 +1,5 @@
 --[[
-    ⛓️ سكربت الصادق الشامل v2 — Alsadig Hub v2
+    ⛓️ سكربت الصادق الشامل v3 — Alsadig Hub v3
     تطوير الصادق — Developed by Alsadig
     ============================================================
     كتالوج شامل يعمل في أي ماب (روبلكس) — كل الميزات في قائمة واحدة.
@@ -11,8 +11,9 @@
       قد لا يعمل (هل الهوك مثبّت؟ ما الهدف الحالي؟ كم النسبة؟)
 
     الكتالوج — 8 بطاقات:
-    1) 🎯 سايلنت إيم: تصويب صامت بثلاث طرق (الفأرة / الريموت /
-       كاميرا عند الإطلاق)، نسبة إصابة، دائرة ذهبية (180° افتراضياً)،
+    1) 🎯 سايلنت إيم: تصويب صامت بأربع طرق (الفأرة / الريموت /
+       كاميرا عند الإطلاق / كاميرا مستمرة)، نسبة إصابة، دائرة
+       ذهبية (180° افتراضياً)،
        مدى ومسافة، مرئي فقط أو عبر الجدران، تجاهل فريقي، وقائمة
        لاعبين لاستبعاد من لا تريد استهدافه.
     2) ✈️ الطيران: طيران بالجويستيك ولوحة المفاتيح وأزرار ▲▼،
@@ -38,7 +39,11 @@
       طلقاتك أنت فقط لرأس الهدف في اللحظة التي تطلق فيها.
     • التصويب الصامت يعتمد على نظام إطلاق النار في اللعبة: جرّب
       الفأرة أولاً، فإن لم تعمل جرّب الريموت، فإن لم يعمل فطريقة
-      الكاميرا تعمل مهما كان نظام السلاح لأنها تحرّك الكاميرا نفسها.
+      الكاميرا تعمل مهما كان نظام السلاح لأنها تحرّك الكاميرا نفسها،
+      وطريقة الكاميرا المستمرة توجّه الكاميرا للهدف طوال الوقت فتعمل
+      في معظم المابات — لكنها ليست صامتة (الكاميرا تتحرك بوضوح).
+      ولا يوجد سكربت يعمل في 100% من المابات: بعض الألعاب يتحقق
+      سيرفرها من الطلقات فيرفض الطلقات الموجَّهة.
     • الفلوس والخبرة (XP) والمستويات وأشياء الروبكس: مستحيلة في أي
       ماب، لأنها محفوظة في سيرفر اللعبة وليس في جهازك، وأي سكربت أو
       فيديو يدّعي أنه يعطيك فلوساً أو خبرة مجاناً فهو نصب لسرقة حسابك.
@@ -90,12 +95,13 @@ end
 
 -- ================= الحالة =================
 local silentAimOn = false
-local aimMethod = "mouse" -- mouse | remote | camera
+local aimMethod = "mouse" -- mouse | remote | camera | camera2
 local aimFov = 180 -- درجات (30 - 180) — دائرة كبيرة: أي شخص يدخل الدائرة يجيه هيدشوت
 local aimRange = 200 -- ستود (100 - 1000)
 local aimVisibleOnly = true -- فحص الرؤية بالشعاع
 local aimThroughWalls = false -- يسمح بالتصويب عبر الجدران (يلغي فحص الرؤية)
 local ignoreSameTeam = true -- تجاهل لاعبي فريقي (في المابات بلا فرق يستهدف الجميع)
+local wideCompat = false -- وضع التوافق الواسع: الريموت يعدّل أي ريموت (افتراضياً مغلق)
 local aimTarget = nil
 
 -- نسبة الإصابة: كل طلقة لها هذه النسبة لتتوجّه لرأس الهدف
@@ -208,18 +214,29 @@ task.spawn(function()
 end)
 
 -- ================= نقطة التصويب (رأس الهدف) =================
+-- جزء التصويب في جسم الهدف: الرأس أولاً، ثم بدائل لمن لا يملكون
+-- رأساً (شخصيات مخصصة في بعض المابات).
+local function getAimPart(char)
+	if not char then return nil end
+	return char:FindFirstChild("Head")
+		or char:FindFirstChild("HumanoidRootPart")
+		or char:FindFirstChild("UpperTorso")
+		or char:FindFirstChild("Torso")
+end
+
 local function getAimPoint()
 	if not aimTarget or not isAlive(aimTarget) then return nil, nil end
 	local char = aimTarget.Character
 	if not char then return nil, nil end
-	local head = char:FindFirstChild("Head")
+	local head = getAimPart(char)
 	if not head then return nil, nil end
 	return head.Position, head
 end
 
 -- ================= الطريقة 1: الفأرة =================
--- يوجّه قراءة الفأرة (mouse.Hit / UnitRay / Target) نحو رأس الهدف.
--- تعمل فقط إذا كان نظام إطلاق النار في اللعبة يقرأ الفأرة.
+-- يوجّه قراءة الفأرة (mouse.Hit / UnitRay / Target / X / Y) نحو رأس الهدف.
+-- تعمل فقط إذا كان نظام إطلاق النار في اللعبة يقرأ الفأرة؛
+-- وX/Y تغطيان الأسلحة التي تحسب التصويب من موضع الفأرة على الشاشة.
 local function installMouseHook()
 	if mouseHookInstalled then return end
 	if not hookmetamethod then
@@ -229,13 +246,20 @@ local function installMouseHook()
 	local ok, err = pcall(function()
 		local oldIndex
 		local function hook(self, key)
-			if silentAimOn and aimMethod == "mouse" and hitRollPass and (key == "Hit" or key == "UnitRay" or key == "Target") then
+			if silentAimOn and aimMethod == "mouse" and hitRollPass and (key == "Hit" or key == "UnitRay" or key == "Target" or key == "X" or key == "Y") then
 				local pos, part = getAimPoint()
 				if pos then
 					if key == "Hit" then
 						return CFrame.new(pos)
 					elseif key == "Target" then
 						return part
+					elseif key == "X" or key == "Y" then
+						local cam = workspace.CurrentCamera
+						if cam then
+							local sp = cam:WorldToScreenPoint(pos)
+							if key == "X" then return sp.X end
+							return sp.Y
+						end
 					elseif key == "UnitRay" then
 						local cam = workspace.CurrentCamera
 						if cam then
@@ -329,7 +353,7 @@ local function installRemoteHook()
 					pcall(function()
 						remoteName = string.lower(tostring(self.Name or ""))
 					end)
-					if isGunRemoteName(remoteName) then
+					if wideCompat or isGunRemoteName(remoteName) then
 						local args = { ... }
 						local changed = false
 						for i, v in ipairs(args) do
@@ -365,6 +389,8 @@ local function methodDisplayName()
 		return "الفأرة"
 	elseif aimMethod == "remote" then
 		return "الريموت"
+	elseif aimMethod == "camera2" then
+		return "كاميرا مستمرة"
 	else
 		return "كاميرا عند الإطلاق"
 	end
@@ -439,7 +465,7 @@ local function pickTarget()
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer and isAlive(plr) and not isExcluded(plr) and not (ignoreSameTeam and isSameTeam(plr)) then
 			local char = plr.Character
-			local head = char and char:FindFirstChild("Head")
+			local head = char and getAimPart(char)
 			if head then
 				local toHead = head.Position - camPos
 				local dist = toHead.Magnitude
@@ -494,6 +520,8 @@ end
 -- إعادة اختيار الهدف كل إطار، وإسقاط القفل فور موت الهدف أو
 -- مغادرته أو خروجه من المدى/الرؤية. طريقة الكاميرا: أثناء
 -- الضغط على زر الإطلاق (فأرة أو لمس) توجّه الكاميرا لرأس الهدف.
+-- طريقة الكاميرا المستمرة: توجّه الكاميرا لرأس الهدف طوال الوقت
+-- (ليست صامتة — الكاميرا تتحرك — لكنها تعمل في معظم المابات).
 UIS.InputBegan:Connect(function(input, _gpe)
 	if input.UserInputType == Enum.UserInputType.Touch then
 		touchCount = touchCount + 1
@@ -512,13 +540,13 @@ RunService.RenderStepped:Connect(function()
 		aimTarget = nil
 	end
 	updateFovCircle()
-	if silentAimOn and aimMethod == "camera" and aimTarget and hitRollPass then
-		local firing = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or touchCount > 0
+	if silentAimOn and aimTarget and hitRollPass and (aimMethod == "camera" or aimMethod == "camera2") then
+		local firing = aimMethod == "camera2" or UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) or touchCount > 0
 		if firing then
 			local cam = workspace.CurrentCamera
-			local head = aimTarget.Character and aimTarget.Character:FindFirstChild("Head")
-			if cam and head then
-				cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, head.Position), 0.5)
+			local pos = getAimPoint()
+			if cam and pos then
+				cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, pos), 0.5)
 			end
 		end
 	end
@@ -1520,18 +1548,19 @@ local function buildGui()
     makeToggle(cardAim, "silentAim", "تصويب صامت", false, function(v) setSilentAim(v) end)
     sectionLabel(cardAim, "طريقة التصويب")
     local rowMethod = makeRow(cardAim)
+    local rowMethod2 = makeRow(cardAim)
     ui.methodBtns = {}
-    local methods = { { "mouse", "الفأرة" }, { "remote", "الريموت" }, { "camera", "كاميرا ⚠️" } }
+    local methods = { { "mouse", "الفأرة", rowMethod }, { "remote", "الريموت", rowMethod }, { "camera", "كاميرا ⚠️", rowMethod2 }, { "camera2", "كاميرا مستمرة ⚠️", rowMethod2 } }
     for _, m in ipairs(methods) do
-        local b = makeButton(rowMethod, m[2], 96)
+        local b = makeButton(m[3], m[2], 146)
         addPress(b)
         ui.methodBtns[m[1]] = b
         b.MouseButton1Click:Connect(function() setAimMethod(m[1]) end)
     end
     local camNote = Instance.new("TextLabel")
-    camNote.Size = UDim2.new(1, 0, 0, 30)
+    camNote.Size = UDim2.new(1, 0, 0, 44)
     camNote.BackgroundTransparency = 1
-    camNote.Text = "⚠️ طريقة الكاميرا ليست صامتة: الكاميرا تتحرك وأنت تطلق النار"
+    camNote.Text = "⚠️ طريقتا الكاميرا ليستا صامتتين — والمستمرة توجّه الكاميرا للهدف طوال الوقت"
     camNote.TextColor3 = TEXT_MUTED
     camNote.Font = Enum.Font.GothamBold
     camNote.TextSize = 12
@@ -1539,6 +1568,8 @@ local function buildGui()
     camNote.TextWrapped = true
     camNote.Parent = cardAim
     makeToggle(cardAim, "ignoreTeam", "🛡️ تجاهل فريقي", true, function(v) ignoreSameTeam = v end)
+    makeToggle(cardAim, "wideCompat", "🎯 وضع التوافق الواسع", false, function(v) wideCompat = v end)
+    noteLabel(cardAim, "⚠️ التوافق الواسع يعدّل أي ريموت أثناء التصويب — قد يسبب سلوكاً غريباً في بعض الألعاب؛ أغلقه إذا تصرفت اللعبة بشكل غريب")
     noteLabel(cardAim, "نسبة الإصابة")
     local rowChance = makeRow(cardAim)
     ui.chanceBtns = {}
@@ -1727,7 +1758,7 @@ local function buildGui()
 	local footer = Instance.new("TextLabel")
 	footer.Size = UDim2.new(1, 0, 0, 26)
 	footer.BackgroundTransparency = 1
-	footer.Text = "الصادق • الشامل v2"
+	footer.Text = "الصادق • الشامل v3"
 	footer.TextColor3 = GOLD
 	footer.Font = Enum.Font.GothamBold
 	footer.TextSize = 14
@@ -1808,6 +1839,7 @@ function refreshUI()
 	syncToggle("visOnly", aimVisibleOnly)
 	syncToggle("throughWalls", aimThroughWalls)
 	syncToggle("ignoreTeam", ignoreSameTeam)
+	syncToggle("wideCompat", wideCompat)
 	syncToggle("fly", flyOn)
 	syncToggle("noclip", noclipOn)
 	syncToggle("god", godOn)
@@ -1882,7 +1914,7 @@ function refreshPlayerList(force)
 end
 
 -- ================= التشغيل =================
-print("⛓️ سكربت الصادق الشامل v2 يعمل! اضغط زر ⛓️ لفتح الكتالوج")
+print("⛓️ سكربت الصادق الشامل v3 يعمل! اضغط زر ⛓️ لفتح الكتالوج")
 installAntiKick()
 installMouseHook()
 installRemoteHook()
