@@ -1,5 +1,5 @@
 --[[
-    ⛓️ سكربت الصادق v3 — Alsadig Script v3
+    ⛓️ سكربت الصادق v4 — Alsadig Script v4
     تطوير الصادق — Developed by Alsadig
     ============================================================
     للعبة Valley Prison [V3] (سجن الوادي) — سجن ولعب أدوار.
@@ -20,6 +20,10 @@
     • قائمة لاعبين: اضغط على أي لاعب لاستبعاده من الاستهداف
       (اضغط مرة أخرى لإعادته)، مع زر مسح الكل.
     • دائرة ذهبية كبيرة (180° افتراضياً): أي شخص يدخلها يجيه هيدشوت.
+    • السكربت لا يطلق النار أبداً من نفسه — التصويب الصامت يوجّه
+      طلقاتك أنت فقط لرأس الهدف في اللحظة التي تطلق فيها.
+    • حماية من الطرد والبان: تمنع محاولات الطرد من جهازك، وتعيد
+      تثبيت الهوكات تلقائياً، وتعيد بناء القائمة إذا حُذفت.
 
     طريقة التشغيل:
     1) انسخ هذا السكربت كاملاً
@@ -49,12 +53,41 @@
     • ⚠️ التصويب التلقائي والصامت ملاحَظ بسهولة من اللاعبين الآخرين
       ومن إدارة اللعبة، واستخدامه قد يؤدي إلى حظر حسابك (بان) —
       استخدمه على مسؤوليتك الخاصة، ويفضل إبقاؤه مغلقاً إلا عند الحاجة.
+    • حماية الطرد تمنع أوامر الطرد التي تأتي من جهازك فقط، وتعيد
+      تثبيت الهوكات وبناء القائمة تلقائياً — أما البان من السيرفر
+      فلا يوجد أي سكربت يستطيع منعه، لأن القرار يتم في السيرفر
+      وليس في جهازك.
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
+
+-- ================= حماية ضد الطرد والبان (Anti-Kick / Anti-Ban) =================
+-- تمنع محاولات الطرد التي تأتي من جهازك فقط، وتقلل خطر الكشف:
+-- السكربت لا يرسل أي شيء للسيرفر ولا يحرّك الكاميرا في طريقتي
+-- الفأرة والريموت. أما البان من السيرفر فلا يوجد سكربت يمنعه.
+local antiKickInstalled = false
+local function installAntiKick()
+	if antiKickInstalled then return end
+	if not hookmetamethod or not getnamecallmethod then return end
+	local ok, err = pcall(function()
+		local oldNamecall
+		local function hook(self, ...)
+			local method = getnamecallmethod()
+			if method == "Kick" and self == LocalPlayer then
+				print("⛓️ تم منع محاولة طرد!")
+				return nil
+			end
+			return oldNamecall(self, ...)
+		end
+		if newcclosure then hook = newcclosure(hook) end
+		oldNamecall = hookmetamethod(game, "__namecall", hook)
+		antiKickInstalled = true
+	end)
+	if not ok then warn("⛓️ تعذر تثبيت حماية الطرد: " .. tostring(err)) end
+end
 
 -- ================= الحالة =================
 local silentAimOn = false
@@ -426,6 +459,9 @@ local function updateFovCircle()
 	if ui.fovDot then
 		ui.fovDot.Visible = show
 	end
+	if ui.fovGlow then
+		ui.fovGlow.Visible = show
+	end
 	if not show then return end
 	local cam = workspace.CurrentCamera
 	if not cam then return end
@@ -434,6 +470,9 @@ local function updateFovCircle()
 	-- دائرة كبيرة: حدّ أقصى يملأ الشاشة تقريباً حتى لا تختفي عند 180°
 	radius = math.min(radius, math.min(vp.X, vp.Y) * 0.48)
 	circle.Size = UDim2.new(0, radius * 2, 0, radius * 2)
+	if ui.fovGlow then
+		ui.fovGlow.Size = UDim2.new(0, radius * 2 + 28, 0, radius * 2 + 28)
+	end
 	local stroke = circle:FindFirstChildOfClass("UIStroke")
 	if stroke then
 		stroke.Color = aimTarget and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(255, 255, 255)
@@ -508,6 +547,19 @@ local function addGoldGradient(obj)
 	return g
 end
 
+-- تدرج ذهبي غني بثلاث درجات (فاتح → ذهبي → داكن) بشكل مائل
+local function addRichGoldGradient(obj)
+	local g = Instance.new("UIGradient")
+	g.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, GOLD_LIGHT),
+		ColorSequenceKeypoint.new(0.5, GOLD),
+		ColorSequenceKeypoint.new(1, GOLD_DARK),
+	})
+	g.Rotation = 45
+	g.Parent = obj
+	return g
+end
+
 local function sectionLabel(parent, text)
 	local l = Instance.new("TextLabel")
 	l.Size = UDim2.new(1, 0, 0, 30)
@@ -525,6 +577,48 @@ local function sectionLabel(parent, text)
 	bar.BorderSizePixel = 0
 	bar.Parent = l
 	addGoldGradient(bar)
+	return l
+end
+
+-- بطاقة قسم مستديرة بخلفية داكنة خفيفة وحافة ذهبية رفيعة
+local function makeCard(parent)
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 0)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.BackgroundColor3 = Color3.fromRGB(24, 24, 38)
+	card.BorderSizePixel = 0
+	card.Parent = parent
+	local cc = Instance.new("UICorner")
+	cc.CornerRadius = UDim.new(0, 14)
+	cc.Parent = card
+	local cs = Instance.new("UIStroke")
+	cs.Color = GOLD
+	cs.Transparency = 0.88
+	cs.Thickness = 1
+	cs.Parent = card
+	local cl = Instance.new("UIListLayout")
+	cl.Padding = UDim.new(0, 6)
+	cl.Parent = card
+	local cp = Instance.new("UIPadding")
+	cp.PaddingLeft = UDim.new(0, 10)
+	cp.PaddingRight = UDim.new(0, 10)
+	cp.PaddingTop = UDim.new(0, 8)
+	cp.PaddingBottom = UDim.new(0, 10)
+	cp.Parent = card
+	return card
+end
+
+-- سطر توضيحي صغير بلون باهت داخل البطاقات
+local function noteLabel(parent, text)
+	local l = Instance.new("TextLabel")
+	l.Size = UDim2.new(1, 0, 0, 20)
+	l.BackgroundTransparency = 1
+	l.Text = text
+	l.TextColor3 = TEXT_MUTED
+	l.Font = Enum.Font.GothamBold
+	l.TextSize = 13
+	l.TextXAlignment = Enum.TextXAlignment.Right
+	l.Parent = parent
 	return l
 end
 
@@ -573,6 +667,20 @@ local function setActive(btn, active)
 	if not btn then return end
 	btn.BackgroundColor3 = active and GOLD or BTN_DARK
 	btn.TextColor3 = active and Color3.fromRGB(25, 18, 5) or TEXT_WHITE
+	local g = btn:FindFirstChild("ActiveGold")
+	if active and not g then
+		g = Instance.new("UIGradient")
+		g.Name = "ActiveGold"
+		g.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, GOLD_LIGHT),
+			ColorSequenceKeypoint.new(0.5, GOLD),
+			ColorSequenceKeypoint.new(1, GOLD_DARK),
+		})
+		g.Rotation = 45
+		g.Parent = btn
+	elseif not active and g then
+		g:Destroy()
+	end
 end
 
 -- مفتاح منزلق عصري: صف فيه نص على اليمين ومفتاح على اليسار
@@ -602,6 +710,11 @@ local function makeToggle(parent, key, text, initial, callback)
 	local sc = Instance.new("UICorner")
 	sc.CornerRadius = UDim.new(1, 0)
 	sc.Parent = switch
+	local glow = Instance.new("UIStroke")
+	glow.Color = GOLD
+	glow.Thickness = 2
+	glow.Transparency = 1
+	glow.Parent = switch
 
 	local knob = Instance.new("Frame")
 	knob.Size = UDim2.new(0, 22, 0, 22)
@@ -620,6 +733,7 @@ local function makeToggle(parent, key, text, initial, callback)
 		local goal = on and UDim2.new(1, -14, 0.5, 0) or UDim2.new(0, 14, 0.5, 0)
 		TweenService:Create(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = goal }):Play()
 		switch.BackgroundColor3 = on and GOLD or Color3.fromRGB(70, 70, 85)
+		glow.Transparency = on and 0.25 or 1
 	end
 	ui.toggles[key] = { set = render, get = function() return state end }
 	render(initial)
@@ -667,6 +781,24 @@ local function buildGui()
 	ui.fovCircle.BackgroundColor3 = GOLD
 	ui.fovCircle.BackgroundTransparency = 0.94
 
+	-- حلقة توهج خافتة حول دائرة مدى الرؤية
+	ui.fovGlow = Instance.new("Frame")
+	ui.fovGlow.Name = "FovGlow"
+	ui.fovGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+	ui.fovGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+	ui.fovGlow.Size = UDim2.new(0, 0, 0, 0)
+	ui.fovGlow.BackgroundTransparency = 1
+	ui.fovGlow.Visible = false
+	ui.fovGlow.Parent = screenGui
+	local fgc = Instance.new("UICorner")
+	fgc.CornerRadius = UDim.new(1, 0)
+	fgc.Parent = ui.fovGlow
+	local fgs = Instance.new("UIStroke")
+	fgs.Thickness = 1
+	fgs.Color = GOLD
+	fgs.Transparency = 0.85
+	fgs.Parent = ui.fovGlow
+
 	ui.fovDot = Instance.new("Frame")
 	ui.fovDot.Name = "FovDot"
 	ui.fovDot.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -693,7 +825,7 @@ local function buildGui()
 	floatButton.Active = true
 	floatButton.Draggable = true
 	floatButton.Parent = screenGui
-	addGoldGradient(floatButton)
+	addRichGoldGradient(floatButton)
 	local fc = Instance.new("UICorner")
 	fc.CornerRadius = UDim.new(1, 0)
 	fc.Parent = floatButton
@@ -730,37 +862,67 @@ local function buildGui()
 	ms.Thickness = 1
 	ms.Parent = menuFrame
 
-	-- شريط العنوان بتدرج ذهبي
+	-- شريط العنوان بتدرج ذهبي غني
 	local titleBar = Instance.new("Frame")
-	titleBar.Size = UDim2.new(1, 0, 0, 48)
+	titleBar.Size = UDim2.new(1, 0, 0, 56)
 	titleBar.BackgroundColor3 = GOLD
 	titleBar.BorderSizePixel = 0
 	titleBar.Parent = menuFrame
-	addGoldGradient(titleBar)
+	addRichGoldGradient(titleBar)
 	local tc = Instance.new("UICorner")
 	tc.CornerRadius = UDim.new(0, 14)
 	tc.Parent = titleBar
 	local titleBottom = Instance.new("Frame")
-	titleBottom.Size = UDim2.new(1, 0, 0, 14)
-	titleBottom.Position = UDim2.new(0, 0, 1, -14)
+	titleBottom.Size = UDim2.new(1, 0, 0, 8)
+	titleBottom.Position = UDim2.new(0, 0, 1, -8)
 	titleBottom.BackgroundColor3 = GOLD
 	titleBottom.BorderSizePixel = 0
 	titleBottom.Parent = titleBar
 
 	local title = Instance.new("TextLabel")
-	title.Size = UDim2.new(1, -54, 1, 0)
-	title.Position = UDim2.new(0, 12, 0, 0)
+	title.Size = UDim2.new(1, -54, 0, 26)
+	title.Position = UDim2.new(0, 12, 0, 4)
 	title.BackgroundTransparency = 1
 	title.Text = "⛓️ الصادق"
 	title.TextColor3 = Color3.fromRGB(25, 18, 5)
 	title.Font = Enum.Font.GothamBold
-	title.TextSize = 19
+	title.TextSize = 18
 	title.TextXAlignment = Enum.TextXAlignment.Right
 	title.Parent = titleBar
 
+	local subtitle = Instance.new("TextLabel")
+	subtitle.Size = UDim2.new(1, -54, 0, 16)
+	subtitle.Position = UDim2.new(0, 12, 0, 30)
+	subtitle.BackgroundTransparency = 1
+	subtitle.Text = "سايلنت إيم • الصادق"
+	subtitle.TextColor3 = Color3.fromRGB(70, 52, 10)
+	subtitle.Font = Enum.Font.GothamBold
+	subtitle.TextSize = 12
+	subtitle.TextXAlignment = Enum.TextXAlignment.Right
+	subtitle.Parent = titleBar
+
+	-- فتح/إغلاق ناعم للقائمة (تكبير/تصغير بحركة)
+	local menuOpen = true
+	local function setMenuOpen(open)
+		menuOpen = open
+		if open then
+			menuFrame.Visible = true
+			menuFrame.Size = UDim2.new(0, 300, 0, 460)
+			TweenService:Create(menuFrame, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 330, 0, 500) }):Play()
+		else
+			local tw = TweenService:Create(menuFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = UDim2.new(0, 300, 0, 460) })
+			tw:Play()
+			tw.Completed:Connect(function()
+				if not menuOpen then
+					menuFrame.Visible = false
+				end
+			end)
+		end
+	end
+
 	local closeBtn = Instance.new("TextButton")
 	closeBtn.Size = UDim2.new(0, 44, 0, 44)
-	closeBtn.Position = UDim2.new(0, 2, 0, 2)
+	closeBtn.Position = UDim2.new(0, 2, 0, 6)
 	closeBtn.BackgroundTransparency = 1
 	closeBtn.Text = "✕"
 	closeBtn.TextColor3 = Color3.fromRGB(25, 18, 5)
@@ -768,17 +930,17 @@ local function buildGui()
 	closeBtn.TextSize = 20
 	closeBtn.Parent = titleBar
 	closeBtn.MouseButton1Click:Connect(function()
-		menuFrame.Visible = false
+		setMenuOpen(false)
 	end)
 
 	floatButton.MouseButton1Click:Connect(function()
-		menuFrame.Visible = not menuFrame.Visible
+		setMenuOpen(not menuOpen)
 	end)
 
 	-- منطقة التمرير
 	local scroll = Instance.new("ScrollingFrame")
-	scroll.Size = UDim2.new(1, 0, 1, -48)
-	scroll.Position = UDim2.new(0, 0, 0, 48)
+	scroll.Size = UDim2.new(1, 0, 1, -56)
+	scroll.Position = UDim2.new(0, 0, 0, 56)
 	scroll.BackgroundTransparency = 1
 	scroll.BorderSizePixel = 0
 	scroll.ScrollBarThickness = 5
@@ -788,7 +950,7 @@ local function buildGui()
 	scroll.Parent = menuFrame
 
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 6)
+	layout.Padding = UDim.new(0, 8)
 	layout.Parent = scroll
 
 	local padding = Instance.new("UIPadding")
@@ -798,9 +960,11 @@ local function buildGui()
 	padding.PaddingBottom = UDim.new(0, 12)
 	padding.Parent = scroll
 
-	-- لوحة التشخيص (أعلى القائمة)
+	-- بطاقة الحالة: لوحة التشخيص + سطر الحالة
+	local cardStatus = makeCard(scroll)
+	sectionLabel(cardStatus, "📊 الحالة")
 	ui.diagLabel = Instance.new("TextLabel")
-	ui.diagLabel.Size = UDim2.new(1, 0, 0, 150)
+	ui.diagLabel.Size = UDim2.new(1, 0, 0, 168)
 	ui.diagLabel.BackgroundColor3 = CARD_DARK
 	ui.diagLabel.TextColor3 = TEXT_WHITE
 	ui.diagLabel.Font = Enum.Font.GothamBold
@@ -809,7 +973,7 @@ local function buildGui()
 	ui.diagLabel.TextYAlignment = Enum.TextYAlignment.Top
 	ui.diagLabel.TextWrapped = true
 	ui.diagLabel.Text = "⏳ جارٍ فحص الحالة..."
-	ui.diagLabel.Parent = scroll
+	ui.diagLabel.Parent = cardStatus
 	local dlc = Instance.new("UICorner")
 	dlc.CornerRadius = UDim.new(0, 10)
 	dlc.Parent = ui.diagLabel
@@ -822,16 +986,17 @@ local function buildGui()
 	ui.statusLabel.Font = Enum.Font.GothamBold
 	ui.statusLabel.TextSize = 14
 	ui.statusLabel.Text = "⛓️ الصادق — جاهز"
-	ui.statusLabel.Parent = scroll
+	ui.statusLabel.Parent = cardStatus
 	local slc = Instance.new("UICorner")
 	slc.CornerRadius = UDim.new(0, 10)
 	slc.Parent = ui.statusLabel
 
-	-- 🎯 التصويب الصامت
-	sectionLabel(scroll, "🎯 التصويب الصامت")
-	makeToggle(scroll, "silentAim", "تصويب صامت", false, function(v) setSilentAim(v) end)
-	sectionLabel(scroll, "طريقة التصويب")
-	local rowMethod = makeRow(scroll)
+	-- بطاقة التصويب الصامت
+	local cardAim = makeCard(scroll)
+	sectionLabel(cardAim, "🎯 التصويب الصامت")
+	makeToggle(cardAim, "silentAim", "تصويب صامت", false, function(v) setSilentAim(v) end)
+	sectionLabel(cardAim, "طريقة التصويب")
+	local rowMethod = makeRow(cardAim)
 	ui.methodBtns = {}
 	local methods = { { "mouse", "الفأرة" }, { "remote", "الريموت" }, { "camera", "كاميرا ⚠️" } }
 	for _, m in ipairs(methods) do
@@ -849,11 +1014,12 @@ local function buildGui()
 	camNote.TextSize = 12
 	camNote.TextXAlignment = Enum.TextXAlignment.Right
 	camNote.TextWrapped = true
-	camNote.Parent = scroll
+	camNote.Parent = cardAim
 
-	-- 🎲 نسبة الإصابة
-	sectionLabel(scroll, "🎲 نسبة الإصابة")
-	local rowChance = makeRow(scroll)
+	-- بطاقة نسبة الإصابة
+	local cardChance = makeCard(scroll)
+	sectionLabel(cardChance, "🎲 نسبة الإصابة")
+	local rowChance = makeRow(cardChance)
 	ui.chanceBtns = {}
 	for _, c in ipairs({ 25, 50, 75, 100 }) do
 		local b = makeButton(rowChance, tostring(c) .. "%", 72)
@@ -865,9 +1031,11 @@ local function buildGui()
 		end)
 	end
 
-	-- مدى الرؤية
-	sectionLabel(scroll, "مدى الرؤية (درجات)")
-	local rowFov = makeRow(scroll)
+	-- بطاقة المدى والرؤية
+	local cardRange = makeCard(scroll)
+	sectionLabel(cardRange, "👁️ المدى والرؤية")
+	noteLabel(cardRange, "مدى الرؤية (درجات)")
+	local rowFov = makeRow(cardRange)
 	ui.fovBtns = {}
 	for _, f in ipairs({ 45, 60, 90, 120, 180 }) do
 		local b = makeButton(rowFov, tostring(f) .. "°", 58)
@@ -876,9 +1044,8 @@ local function buildGui()
 		b.MouseButton1Click:Connect(function() aimFov = f end)
 	end
 
-	-- أقصى مسافة
-	sectionLabel(scroll, "أقصى مسافة (ستود)")
-	local rowRange = makeRow(scroll)
+	noteLabel(cardRange, "أقصى مسافة (ستود)")
+	local rowRange = makeRow(cardRange)
 	ui.rangeBtns = {}
 	for _, r in ipairs({ 100, 200, 500, 1000 }) do
 		local b = makeButton(rowRange, tostring(r), 72)
@@ -887,18 +1054,19 @@ local function buildGui()
 		b.MouseButton1Click:Connect(function() aimRange = r end)
 	end
 
-	makeToggle(scroll, "visOnly", "فقط إذا كان الهدف مرئياً", true, function(v)
+	makeToggle(cardRange, "visOnly", "فقط إذا كان الهدف مرئياً", true, function(v)
 		aimVisibleOnly = v
 		if v then aimThroughWalls = false end
 	end)
-	makeToggle(scroll, "throughWalls", "التصويب عبر الجدران", false, function(v)
+	makeToggle(cardRange, "throughWalls", "التصويب عبر الجدران", false, function(v)
 		aimThroughWalls = v
 		if v then aimVisibleOnly = false end
 	end)
 
-	-- 👤 اللاعبون — الاستبعاد من الاستهداف
-	sectionLabel(scroll, "👤 اللاعبون — اضغط على لاعب لاستبعاده")
-	local rowPlayers = makeRow(scroll)
+	-- بطاقة اللاعبين
+	local cardPlayers = makeCard(scroll)
+	sectionLabel(cardPlayers, "👤 اللاعبون — اضغط على لاعب لاستبعاده")
+	local rowPlayers = makeRow(cardPlayers)
 	ui.refreshBtn = makeButton(rowPlayers, "🔄 تحديث", 146)
 	addPress(ui.refreshBtn)
 	ui.refreshBtn.MouseButton1Click:Connect(function()
@@ -917,11 +1085,11 @@ local function buildGui()
 	ui.excludedLabel.Font = Enum.Font.GothamBold
 	ui.excludedLabel.TextSize = 13
 	ui.excludedLabel.TextXAlignment = Enum.TextXAlignment.Right
-	ui.excludedLabel.Parent = scroll
+	ui.excludedLabel.Parent = cardPlayers
 	ui.playerList = Instance.new("Frame")
 	ui.playerList.Size = UDim2.new(1, 0, 0, 0)
 	ui.playerList.BackgroundTransparency = 1
-	ui.playerList.Parent = scroll
+	ui.playerList.Parent = cardPlayers
 	local plLayout = Instance.new("UIListLayout")
 	plLayout.Padding = UDim.new(0, 4)
 	plLayout.Parent = ui.playerList
@@ -930,7 +1098,7 @@ local function buildGui()
 	local footer = Instance.new("TextLabel")
 	footer.Size = UDim2.new(1, 0, 0, 26)
 	footer.BackgroundTransparency = 1
-	footer.Text = "الصادق • Valley Prison v3"
+	footer.Text = "الصادق • Valley Prison v4"
 	footer.TextColor3 = GOLD
 	footer.Font = Enum.Font.GothamBold
 	footer.TextSize = 14
@@ -940,12 +1108,28 @@ local function buildGui()
 	refreshPlayerList(true)
 end
 
--- حارس الواجهة: إذا حذفت اللعبة القائمة، يعيد بناءها تلقائياً
+-- حارس الواجهة والهوكات: إذا حذفت اللعبة القائمة يعيد بناءها
+-- تلقائياً، ويعيد تثبيت أي هوك لم يُثبَّت بعد.
 task.spawn(function()
 	while true do
 		task.wait(2)
-		if not screenGui or not screenGui.Parent then
+		if not screenGui or not screenGui.Parent or not menuFrame or not menuFrame.Parent or not floatButton or not floatButton.Parent then
 			buildGui()
+		end
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(5)
+		if not mouseHookInstalled then
+			installMouseHook()
+		end
+		if not remoteHookInstalled then
+			installRemoteHook()
+		end
+		if not antiKickInstalled then
+			installAntiKick()
 		end
 	end
 end)
@@ -957,6 +1141,7 @@ local function buildDiagText()
 	table.insert(lines, "الطريقة: " .. methodDisplayName())
 	table.insert(lines, "هوك الفأرة: " .. (mouseHookInstalled and "نعم ✅" or "لا ❌"))
 	table.insert(lines, "هوك الريموت: " .. (remoteHookInstalled and "نعم ✅" or "لا ❌"))
+	table.insert(lines, "حماية الطرد: " .. (antiKickInstalled and "نعم ✅" or "لا ❌"))
 	local targetText = "لا يوجد هدف"
 	if aimTarget then
 		targetText = aimTarget.DisplayName .. " [" .. teamLabelFor(aimTarget) .. "]"
@@ -1055,7 +1240,8 @@ function refreshPlayerList(force)
 end
 
 -- ================= التشغيل =================
-print("⛓️ سكربت الصادق v3 يعمل! تصويب صامت فقط — اضغط زر ⛓️ لفتح القائمة")
+print("⛓️ سكربت الصادق v4 يعمل! تصويب صامت فقط — اضغط زر ⛓️ لفتح القائمة")
+installAntiKick()
 installMouseHook()
 installRemoteHook()
 buildGui()
