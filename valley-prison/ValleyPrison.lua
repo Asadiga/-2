@@ -1,58 +1,52 @@
 --[[
-    ⛓️ سكربت الصادق v4 — Alsadig Script v4
+    ⛓️ سكربت الصادق الشامل v1 — Alsadig Hub v1
     تطوير الصادق — Developed by Alsadig
     ============================================================
-    للعبة Valley Prison [V3] (سجن الوادي) — سجن ولعب أدوار.
-    سكربت تصويب صامت فقط (Silent Aim Only) — بلا أي ميزة أخرى.
+    كتالوج شامل يعمل في أي ماب (روبلكس) — كل الميزات في قائمة واحدة.
     يعمل على Delta Mobile باللمس كاملاً — كل شيء من القائمة.
 
     قائمة تحكم كاملة باللمس (بدون كتابة أوامر):
-    • زر عائم ⛓️ يفتح القائمة ويغلقها
+    • زر عائم ⛓️ يفتح القائمة ويغلقها (اسحب الزر لأي مكان يعجبك)
     • لوحة تشخيص في أعلى القائمة توضح حالة السايلنت إيم ولماذا
       قد لا يعمل (هل الهوك مثبّت؟ ما الهدف الحالي؟ كم النسبة؟)
-    • تصويب صامت بثلاث طرق — جرّبها بالترتيب:
-      1) الفأرة: يوجّه قراءة الفأرة (mouse.Hit) نحو رأس الهدف.
-      2) الريموت: يعدّل الريموت الذي يطلقه السلاح نحو رأس الهدف.
-      3) كاميرا عند الإطلاق: يوجّه الكاميرا للهدف وأنت تطلق النار
-         (ليست صامتة — الكاميرا تتحرك، لكنها تعمل مهما كان نظام السلاح).
-    • نسبة إصابة (25 / 50 / 75 / 100%): كل طلقة لها هذه النسبة
-      لتتوجّه للهدف، وإلا تذهب عادياً.
-    • قائمة لاعبين: اضغط على أي لاعب لاستبعاده من الاستهداف
-      (اضغط مرة أخرى لإعادته)، مع زر مسح الكل.
-    • دائرة ذهبية كبيرة (180° افتراضياً): أي شخص يدخلها يجيه هيدشوت.
-    • السكربت لا يطلق النار أبداً من نفسه — التصويب الصامت يوجّه
-      طلقاتك أنت فقط لرأس الهدف في اللحظة التي تطلق فيها.
-    • حماية من الطرد والبان: تمنع محاولات الطرد من جهازك، وتعيد
-      تثبيت الهوكات تلقائياً، وتعيد بناء القائمة إذا حُذفت.
+
+    الكتالوج — 8 بطاقات:
+    1) 🎯 سايلنت إيم: تصويب صامت بثلاث طرق (الفأرة / الريموت /
+       كاميرا عند الإطلاق)، نسبة إصابة، دائرة ذهبية (180° افتراضياً)،
+       مدى ومسافة، مرئي فقط أو عبر الجدران، تجاهل فريقي، وقائمة
+       لاعبين لاستبعاد من لا تريد استهدافه.
+    2) ✈️ الطيران: طيران بالجويستيك ولوحة المفاتيح وأزرار ▲▼،
+       بسرعات 16 / 50 / 100.
+    3) 👻 اختراق الجدران: امشِ عبر الجدران والأبواب.
+    4) 🛡️ حماية: وضع إلهي (صحة كاملة دائماً) + حماية الطرد والبان
+       مفعّلة دائماً.
+    5) 🏃 السرعة والقفز: سرعة مشي (16 / 22 / 30 / 50)، قوة قفز
+       (50 / 70 / 100)، وركض لا نهائي.
+    6) 👁️ ESP للاعبين: اسم كل لاعب وفريقه ومسافته وصحته.
+    7) 🔫 إظهار الأسلحة: يعلّم الأسلحة الملقاة على الأرض باسمها
+       والمسافة — التقطها بنفسك.
+    8) 🗺️ التنقل: احفظ حتى 5 نقاط وانتقل إليها، أو انتقل لأقرب
+       لاعب أو لأي لاعب من القائمة.
 
     طريقة التشغيل:
     1) انسخ هذا السكربت كاملاً
-    2) الصقه في دلتا (أو Solara) واضغط تشغيل (Execute) وأنت داخل اللعبة
-    3) ستظهر قائمة التحكم — اسحبها لأي مكان يعجبك
+    2) الصقه في دلتا (أو Solara) واضغط تشغيل (Execute) وأنت داخل أي لعبة
+    3) ستظهر قائمة التحكم — اضغط زر ⛓️ لفتح الكتالوج
 
     ⚠️ ملاحظات مهمة بصراحة — اقرأها قبل التشغيل:
-    • اللعبة حدّثت (V3 0.01) وتغيّر نظام إطلاق النار، فتوقفت طريقة
-      الفأرة عن العمل عند بعض اللاعبين. لهذا أضفنا ثلاث طرق: جرّب
+    • السكربت لا يطلق النار أبداً من نفسه — التصويب الصامت يوجّه
+      طلقاتك أنت فقط لرأس الهدف في اللحظة التي تطلق فيها.
+    • التصويب الصامت يعتمد على نظام إطلاق النار في اللعبة: جرّب
       الفأرة أولاً، فإن لم تعمل جرّب الريموت، فإن لم يعمل فطريقة
       الكاميرا تعمل مهما كان نظام السلاح لأنها تحرّك الكاميرا نفسها.
-      لوحة التشخيص في أعلى القائمة تخبرك أي هوك مثبّت وأي طريقة
-      تعمل في منفّذك — إذا ظهر "هوك الفأرة: لا" فالمنفذ لا يدعم
-      تلك الطريقة وجرّب غيرها.
-    • التصويب الصامت يعتمد على طريقة إطلاق النار في اللعبة: إذا كان
-      السيرفر يتحقق من الطلقات أو كان نظام السلاح يقرأ شيئاً آخر
-      غير الفأرة والريموت، فقد لا يعمل التصويب الصامت إطلاقاً.
-    • طريقة الريموت تخمين (heuristic): تعدّل فقط الريموتات التي
-      يبدو اسمها متعلقاً بإطلاق النار (shoot/fire/bullet/gun/
-      hit/damage/attack) وتستبدل أي رقم موضع (Vector3) أو إطار
-      (CFrame) فيها بموقع رأس الهدف. إذا كان سلاح اللعبة يطلق
-      ريموتاً باسم آخر أو بلا موضع، فلن تفيد هذه الطريقة.
-    • الفلوس والخبرة (XP) والمستويات وفتح الفرق وأشياء الروبكس:
-      مستحيلة في أي ماب، لأنها محفوظة في سيرفر اللعبة وليس في
-      جهازك، وأي سكربت أو فيديو يدّعي أنه يعطيك فلوساً أو خبرة
-      مجاناً فهو نصب لسرقة حسابك. لا تصدقه أبداً.
-    • ⚠️ التصويب التلقائي والصامت ملاحَظ بسهولة من اللاعبين الآخرين
-      ومن إدارة اللعبة، واستخدامه قد يؤدي إلى حظر حسابك (بان) —
-      استخدمه على مسؤوليتك الخاصة، ويفضل إبقاؤه مغلقاً إلا عند الحاجة.
+    • الفلوس والخبرة (XP) والمستويات وأشياء الروبكس: مستحيلة في أي
+      ماب، لأنها محفوظة في سيرفر اللعبة وليس في جهازك، وأي سكربت أو
+      فيديو يدّعي أنه يعطيك فلوساً أو خبرة مجاناً فهو نصب لسرقة حسابك.
+    • الوضع الإلهي والطيران واختراق الجدران وESP كلها في جهازك فقط
+      (client-side)، وقد يهزمها تحقق السيرفر فلا تعمل في بعض المابات.
+    • التصويب الصامت ملاحَظ بسهولة من اللاعبين الآخرين ومن إدارة
+      اللعبة، واستخدامه قد يؤدي إلى حظر حسابك (بان) — استخدمه على
+      مسؤوليتك الخاصة، ويفضل إبقاؤه مغلقاً إلا عند الحاجة.
     • حماية الطرد تمنع أوامر الطرد التي تأتي من جهازك فقط، وتعيد
       تثبيت الهوكات وبناء القائمة تلقائياً — أما البان من السيرفر
       فلا يوجد أي سكربت يستطيع منعه، لأن القرار يتم في السيرفر
@@ -96,6 +90,7 @@ local aimFov = 180 -- درجات (30 - 180) — دائرة كبيرة: أي شخ
 local aimRange = 200 -- ستود (100 - 1000)
 local aimVisibleOnly = true -- فحص الرؤية بالشعاع
 local aimThroughWalls = false -- يسمح بالتصويب عبر الجدران (يلغي فحص الرؤية)
+local ignoreSameTeam = true -- تجاهل لاعبي فريقي (في المابات بلا فرق يستهدف الجميع)
 local aimTarget = nil
 
 -- نسبة الإصابة: كل طلقة لها هذه النسبة لتتوجّه لرأس الهدف
@@ -104,6 +99,10 @@ local hitRollPass = true -- نتيجة السحب الحالية (تتجدد ك�
 
 -- المستبعدون من الاستهداف: [اسم اللاعب] = true (تبقى طوال الجلسة)
 local excluded = {}
+
+-- إظهار الأسلحة: تتبع علامات الأسلحة الملقاة على الأرض
+local weaponEspOn = false
+local weaponEspMarks = {} -- [instance] = {highlight, billboard, label}
 
 -- حالة الهوكات (تظهر في لوحة التشخيص)
 local mouseHookInstalled = false
@@ -144,28 +143,14 @@ local function teamLabelFor(plr)
 	return "؟"
 end
 
--- هل هذا اللاعب عدو للاعب المحلي؟ (لسجين/هارب: الحراس والشرطة)
-local function isEnemy(plr)
-	local myTeam = string.lower(getTeamName(LocalPlayer))
-	local theirTeam = string.lower(getTeamName(plr))
-	if theirTeam == "" then
-		return false -- فريق غير معروف: لا نعتبره عدواً مؤكداً
-	end
-	local iAmGuard = string.find(myTeam, "correction", 1, true)
-		or string.find(myTeam, "police", 1, true)
-		or string.find(myTeam, "state", 1, true)
-	local theyAreGuard = string.find(theirTeam, "correction", 1, true)
-		or string.find(theirTeam, "police", 1, true)
-		or string.find(theirTeam, "state", 1, true)
-	local theyArePrisoner = string.find(theirTeam, "inmate", 1, true)
-		or string.find(theirTeam, "escapee", 1, true)
-	if iAmGuard then
-		return theyArePrisoner
-	else
-		return theyAreGuard
-	end
+-- هل هذا اللاعب في فريقي؟ (يُتجاهل إذا كان خيار "تجاهل فريقي" مفعّلاً؛
+-- في المابات التي بلا فرق لا أحد في فريقك، فيستهدف الجميع)
+local function isSameTeam(plr)
+	local myTeam = LocalPlayer.Team
+	local theirTeam = plr and plr.Team
+	if not myTeam or not theirTeam then return false end
+	return myTeam == theirTeam
 end
-
 local function clampNum(v, lo, hi)
 	if v < lo then return lo end
 	if v > hi then return hi end
@@ -403,43 +388,33 @@ local function isVisibleToCamera(char, targetPos)
 	return result.Instance:IsDescendantOf(char)
 end
 
--- اختيار الهدف كل إطار: الأعداء أولاً (الحراس والشرطة)، وإلا أقرب
--- لاعب آخر — مع تخطّي المستبعدين دائماً. الأولوية: الأقرب لمركز
--- الشاشة داخل مدى الرؤية، ثم الأقرب مسافة.
+-- اختيار الهدف كل إطار: أقرب لاعب آخر داخل الدائرة — مع تخطّي
+-- المستبعدين ولاعبي فريقي (إذا كان خيار "تجاهل فريقي" مفعّلاً).
+-- الأولوية: الأقرب لمركز الشاشة داخل مدى الرؤية، ثم الأقرب مسافة.
 local function pickTarget()
 	local cam = workspace.CurrentCamera
 	if not cam then return nil end
 	local camPos = cam.CFrame.Position
 	local camDir = cam.CFrame.LookVector
-	local enemies = {}
-	local others = {}
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LocalPlayer and isAlive(plr) and not isExcluded(plr) then
-			if isEnemy(plr) then
-				table.insert(enemies, plr)
-			else
-				table.insert(others, plr)
-			end
-		end
-	end
-	local pool = #enemies > 0 and enemies or others
 	local best = nil
 	local bestAngle = math.huge
 	local bestDist = math.huge
-	for _, plr in ipairs(pool) do
-		local char = plr.Character
-		local head = char and char:FindFirstChild("Head")
-		if head then
-			local toHead = head.Position - camPos
-			local dist = toHead.Magnitude
-			if dist <= aimRange and dist > 0.5 then
-				local angle = math.deg(math.acos(clampNum(camDir:Dot(toHead.Unit), -1, 1)))
-				if angle <= aimFov / 2 then
-					if angle < bestAngle - 0.5 or (math.abs(angle - bestAngle) <= 0.5 and dist < bestDist) then
-						if isVisibleToCamera(char, head.Position) then
-							best = plr
-							bestAngle = angle
-							bestDist = dist
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer and isAlive(plr) and not isExcluded(plr) and not (ignoreSameTeam and isSameTeam(plr)) then
+			local char = plr.Character
+			local head = char and char:FindFirstChild("Head")
+			if head then
+				local toHead = head.Position - camPos
+				local dist = toHead.Magnitude
+				if dist <= aimRange and dist > 0.5 then
+					local angle = math.deg(math.acos(clampNum(camDir:Dot(toHead.Unit), -1, 1)))
+					if angle <= aimFov / 2 then
+						if angle < bestAngle - 0.5 or (math.abs(angle - bestAngle) <= 0.5 and dist < bestDist) then
+							if isVisibleToCamera(char, head.Position) then
+								best = plr
+								bestAngle = angle
+								bestDist = dist
+							end
 						end
 					end
 				end
@@ -448,7 +423,6 @@ local function pickTarget()
 	end
 	return best
 end
-
 -- ================= دائرة مدى الرؤية =================
 local ui = {}
 local function updateFovCircle()
@@ -752,6 +726,491 @@ local function makeToggle(parent, key, text, initial, callback)
 	return row
 end
 
+-- ================= إظهار الأسلحة (Weapon ESP) =================
+-- يعلّم الأسلحة الملقاة على الأرض فقط (أدوات/أجزاء في Workspace
+-- اسمها يطابق كلمة سلاح)، بإطار ذهبي واسم السلاح والمسافة.
+-- لا يضع السلاح في يدك — عليك الذهاب والتقاطه بنفسك في اللعبة.
+-- الأسلحة المحمولة بيد لاعب (داخل شخصيته) لا تُعلَّم.
+local WEAPON_GOLD = Color3.fromRGB(241, 185, 47)
+local WEAPON_WORDS = { "beretta", "pistol", "gun", "rifle", "shotgun", "smg", "shiv", "knife" }
+
+local function isWeaponName(nameLower)
+	for _, word in ipairs(WEAPON_WORDS) do
+		if string.find(nameLower, word, 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
+-- هل هذه القطعة داخل شخصية لاعب (محمولة بيده)؟
+local function isHeldByPlayer(inst)
+	local cur = inst
+	while cur do
+		if cur:IsA("Model") then
+			local plr = Players:GetPlayerFromCharacter(cur)
+			if plr then return true end
+		end
+		cur = cur.Parent
+	end
+	return false
+end
+
+-- هل أحد أسلاف هذه القطعة سلاح مطابق؟ (حتى لا نعلّم القطعة والسلاح معاً)
+local function hasWeaponAncestor(inst)
+	local cur = inst.Parent
+	while cur and cur ~= workspace do
+		if (cur:IsA("Tool") or cur:IsA("Model")) and isWeaponName(string.lower(tostring(cur.Name or ""))) then
+			return true
+		end
+		cur = cur.Parent
+	end
+	return false
+end
+
+local function getWeaponPos(inst)
+	if inst:IsA("BasePart") then
+		return inst.Position
+	end
+	if inst:IsA("Model") then
+		local ok, cf = pcall(function() return inst:GetPivot() end)
+		if ok then return cf.Position end
+	end
+	local handle = inst:FindFirstChild("Handle")
+	if handle and handle:IsA("BasePart") then
+		return handle.Position
+	end
+	return nil
+end
+
+local function clearWeaponEsp()
+	for _, mark in pairs(weaponEspMarks) do
+		pcall(function() mark.highlight:Destroy() end)
+		pcall(function() mark.billboard:Destroy() end)
+	end
+	table.clear(weaponEspMarks)
+end
+
+local function refreshWeaponEsp()
+	if not weaponEspOn then
+		clearWeaponEsp()
+		return
+	end
+	local myChar = getCharacter()
+	local myPos = nil
+	if myChar then
+		local hrp = myChar:FindFirstChild("HumanoidRootPart")
+		if hrp then myPos = hrp.Position end
+	end
+	local seen = {}
+	local ok, descendants = pcall(function() return workspace:GetDescendants() end)
+	if not ok then return end
+	for _, inst in ipairs(descendants) do
+		if (inst:IsA("Tool") or inst:IsA("BasePart") or inst:IsA("Model"))
+			and isWeaponName(string.lower(tostring(inst.Name or "")))
+			and not isHeldByPlayer(inst)
+			and not hasWeaponAncestor(inst) then
+			local pos = getWeaponPos(inst)
+			if pos then
+				seen[inst] = true
+				local dist = myPos and math.floor((pos - myPos).Magnitude + 0.5) or nil
+				local labelText = "🔫 " .. inst.Name .. (dist and (" — " .. dist .. "م") or "")
+				local mark = weaponEspMarks[inst]
+				if not mark then
+					local hl = Instance.new("Highlight")
+					hl.FillColor = WEAPON_GOLD
+					hl.FillTransparency = 0.7
+					hl.OutlineColor = WEAPON_GOLD
+					hl.OutlineTransparency = 0
+					hl.Adornee = inst
+					hl.Parent = inst
+					local bb = Instance.new("BillboardGui")
+					bb.Name = "WeaponEspLabel"
+					bb.Size = UDim2.new(0, 200, 0, 30)
+					bb.StudsOffset = Vector3.new(0, 2, 0)
+					bb.AlwaysOnTop = true
+					bb.Adornee = inst
+					bb.Parent = inst
+					local tl = Instance.new("TextLabel")
+					tl.Size = UDim2.new(1, 0, 1, 0)
+					tl.BackgroundTransparency = 1
+					tl.Text = labelText
+					tl.TextColor3 = WEAPON_GOLD
+					tl.Font = Enum.Font.GothamBold
+					tl.TextSize = 14
+					tl.TextStrokeTransparency = 0.5
+					tl.Parent = bb
+					weaponEspMarks[inst] = { highlight = hl, billboard = bb, label = tl }
+				else
+					mark.label.Text = labelText
+				end
+			end
+		end
+	end
+	for inst, mark in pairs(weaponEspMarks) do
+		if not seen[inst] then
+			pcall(function() mark.highlight:Destroy() end)
+			pcall(function() mark.billboard:Destroy() end)
+			weaponEspMarks[inst] = nil
+		end
+	end
+end
+
+-- ================= الطيران =================
+local flyOn = false
+local flySpeed = 50
+local flyBV = nil
+local flyBG = nil
+local flyUp = false
+local flyDown = false
+
+local function stopFlyParts()
+    if flyBV then
+        pcall(function() flyBV:Destroy() end)
+        flyBV = nil
+    end
+    if flyBG then
+        pcall(function() flyBG:Destroy() end)
+        flyBG = nil
+    end
+end
+
+local function setFly(on)
+    flyOn = on
+    if not on then
+        stopFlyParts()
+        flyUp = false
+        flyDown = false
+    else
+        local char = getCharacter()
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            print("⛓️ لا توجد شخصية للطيران بعد — جرّب بعد ظهورك")
+            flyOn = false
+            refreshUI()
+            return
+        end
+        stopFlyParts()
+        flyBV = Instance.new("BodyVelocity")
+        flyBV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        flyBV.Velocity = Vector3.new(0, 0, 0)
+        flyBV.Parent = hrp
+        flyBG = Instance.new("BodyGyro")
+        flyBG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        flyBG.P = 10000
+        flyBG.Parent = hrp
+    end
+    if ui.flyUpBtn then ui.flyUpBtn.Visible = flyOn end
+    if ui.flyDownBtn then ui.flyDownBtn.Visible = flyOn end
+    print("⛓️ الطيران: " .. (flyOn and "ON" or "OFF"))
+    refreshUI()
+end
+
+-- حلقة الطيران: الاتجاه من جويستيك الهاتف (Humanoid.MoveDirection)
+-- ولوحة المفاتيح (WASD + مسافة/Ctrl) وأزرار ▲▼ على الشاشة
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+        if flyOn and flyBV and flyBV.Parent then
+            pcall(function()
+                local char = getCharacter()
+                local hum = getHumanoid(char)
+                local cam = workspace.CurrentCamera
+                if not hum or not cam then return end
+                local move = hum.MoveDirection
+                local fwd = cam.CFrame.LookVector
+                local right = cam.CFrame.RightVector
+                local dir = Vector3.new(move.X, 0, move.Z)
+                if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + Vector3.new(fwd.X, 0, fwd.Z) end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - Vector3.new(fwd.X, 0, fwd.Z) end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + Vector3.new(right.X, 0, right.Z) end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - Vector3.new(right.X, 0, right.Z) end
+                if dir.Magnitude > 1 then dir = dir.Unit end
+                local y = 0
+                if flyUp or UIS:IsKeyDown(Enum.KeyCode.Space) then y = 1 end
+                if flyDown or UIS:IsKeyDown(Enum.KeyCode.LeftControl) or UIS:IsKeyDown(Enum.KeyCode.C) then y = -1 end
+                flyBV.Velocity = Vector3.new(dir.X * flySpeed, y * flySpeed, dir.Z * flySpeed)
+                if flyBG and flyBV.Parent then
+                    local flat = Vector3.new(fwd.X, 0, fwd.Z)
+                    if flat.Magnitude > 0.01 then
+                        flyBG.CFrame = CFrame.new(flyBV.Parent.Position, flyBV.Parent.Position + flat)
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- ================= اختراق الجدران =================
+local noclipOn = false
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if noclipOn then
+            pcall(function()
+                local char = getCharacter()
+                if char then
+                    for _, part in ipairs(char:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- ================= الحماية (وضع إلهي) =================
+local godOn = false
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if godOn then
+            pcall(function()
+                local hum = getHumanoid(getCharacter())
+                if hum then
+                    hum:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+                    if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+                end
+            end)
+        end
+    end
+end)
+
+-- ================= السرعة والقفز =================
+local walkSpeed = 16
+local jumpPower = 50
+local sprintOn = false
+local SPRINT_SPEED = 50
+
+local function applySpeed()
+    pcall(function()
+        local hum = getHumanoid(getCharacter())
+        if hum then
+            hum.WalkSpeed = sprintOn and SPRINT_SPEED or walkSpeed
+            hum.JumpPower = jumpPower
+        end
+    end)
+end
+
+-- إعادة تطبيق السرعة باستمرار أثناء الركض (السيرفر قد يعيدها)
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if sprintOn then applySpeed() end
+    end
+end)
+
+-- ================= ESP للاعبين =================
+local playerEspOn = false
+local playerEspMarks = {} -- [player] = {highlight, billboard, label}
+
+local function clearPlayerEsp()
+    for _, mark in pairs(playerEspMarks) do
+        pcall(function() mark.highlight:Destroy() end)
+        pcall(function() mark.billboard:Destroy() end)
+    end
+    table.clear(playerEspMarks)
+end
+
+local function refreshPlayerEsp()
+    if not playerEspOn then
+        clearPlayerEsp()
+        return
+    end
+    local myChar = getCharacter()
+    local myPos = nil
+    if myChar then
+        local hrp = myChar:FindFirstChild("HumanoidRootPart")
+        if hrp then myPos = hrp.Position end
+    end
+    local seen = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and isAlive(plr) then
+            local char = plr.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            local hum = getHumanoid(char)
+            if char and hrp and hum then
+                seen[plr] = true
+                local dist = myPos and math.floor((hrp.Position - myPos).Magnitude + 0.5) or nil
+                local teamName = teamLabelFor(plr)
+                local color = (plr.Team and plr.TeamColor.Color) or Color3.fromRGB(241, 185, 47)
+                local labelText = "👤 " .. plr.DisplayName .. " [" .. teamName .. "]" .. (dist and (" — " .. dist .. "م") or "") .. " ❤️" .. math.floor(hum.Health + 0.5) .. "/" .. math.floor(hum.MaxHealth + 0.5)
+                local mark = playerEspMarks[plr]
+                if not mark then
+                    local hl = Instance.new("Highlight")
+                    hl.FillColor = color
+                    hl.FillTransparency = 0.7
+                    hl.OutlineColor = color
+                    hl.OutlineTransparency = 0
+                    hl.Adornee = char
+                    hl.Parent = char
+                    local bb = Instance.new("BillboardGui")
+                    bb.Name = "PlayerEspLabel"
+                    bb.Size = UDim2.new(0, 220, 0, 30)
+                    bb.StudsOffset = Vector3.new(0, 3, 0)
+                    bb.AlwaysOnTop = true
+                    bb.Adornee = hrp
+                    bb.Parent = hrp
+                    local tl = Instance.new("TextLabel")
+                    tl.Size = UDim2.new(1, 0, 1, 0)
+                    tl.BackgroundTransparency = 1
+                    tl.Text = labelText
+                    tl.TextColor3 = color
+                    tl.Font = Enum.Font.GothamBold
+                    tl.TextSize = 14
+                    tl.TextStrokeTransparency = 0.5
+                    tl.Parent = bb
+                    playerEspMarks[plr] = { highlight = hl, billboard = bb, label = tl }
+                else
+                    mark.label.Text = labelText
+                    mark.highlight.FillColor = color
+                    mark.highlight.OutlineColor = color
+                    mark.label.TextColor3 = color
+                end
+            end
+        end
+    end
+    for plr, mark in pairs(playerEspMarks) do
+        if not seen[plr] then
+            pcall(function() mark.highlight:Destroy() end)
+            pcall(function() mark.billboard:Destroy() end)
+            playerEspMarks[plr] = nil
+        end
+    end
+end
+
+-- ================= التنقل =================
+local waypoints = {} -- حتى 5 نقاط Vector3
+
+local function teleportToPos(pos)
+    pcall(function()
+        local char = getCharacter()
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+        end
+    end)
+end
+
+local function rebuildWaypointButtons()
+    if not ui.waypointList then return end
+    for _, child in ipairs(ui.waypointList:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    for i, pos in ipairs(waypoints) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 40)
+        btn.BackgroundColor3 = BTN_DARK
+        btn.TextColor3 = TEXT_WHITE
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 15
+        btn.Text = "📍 نقطة " .. i .. " (" .. math.floor(pos.X + 0.5) .. ", " .. math.floor(pos.Z + 0.5) .. ")"
+        btn.Parent = ui.waypointList
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, 10)
+        c.Parent = btn
+        addPress(btn)
+        local target = pos
+        btn.MouseButton1Click:Connect(function() teleportToPos(target) end)
+    end
+    ui.waypointList.Size = UDim2.new(1, 0, 0, #waypoints * 44)
+end
+
+local function saveWaypoint()
+    local char = getCharacter()
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        print("⛓️ لا توجد شخصية لحفظ النقطة بعد")
+        return
+    end
+    if #waypoints >= 5 then
+        table.remove(waypoints, 1)
+        print("⛓️ وصلت للحد (5 نقاط) — حذفنا أقدم نقطة")
+    end
+    table.insert(waypoints, hrp.Position)
+    print("⛓️ حفظنا نقطة " .. #waypoints)
+    rebuildWaypointButtons()
+end
+
+local function teleportToNearest()
+    local myChar = getCharacter()
+    local myHrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return end
+    local best = nil
+    local bestDist = math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and isAlive(plr) then
+            local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local d = (hrp.Position - myHrp.Position).Magnitude
+                if d < bestDist then
+                    bestDist = d
+                    best = plr
+                end
+            end
+        end
+    end
+    if best then
+        local hrp = best.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            teleportToPos(hrp.Position)
+            print("⛓️ انتقلنا إلى " .. best.DisplayName)
+        end
+    else
+        print("⛓️ لا يوجد لاعب للانتقال إليه")
+    end
+end
+
+local function refreshFollowList()
+    if not ui.followList then return end
+    for _, child in ipairs(ui.followList:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+    local names = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then table.insert(names, plr.Name) end
+    end
+    table.sort(names)
+    for _, name in ipairs(names) do
+        local plr = Players:FindFirstChild(name)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 40)
+        btn.BackgroundColor3 = BTN_DARK
+        btn.TextColor3 = TEXT_WHITE
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 15
+        btn.Text = "👤 " .. (plr and plr.DisplayName or name) .. " [" .. teamLabelFor(plr) .. "]"
+        btn.Parent = ui.followList
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, 10)
+        c.Parent = btn
+        addPress(btn)
+        local targetPlr = plr
+        btn.MouseButton1Click:Connect(function()
+            if targetPlr then
+                local hrp = targetPlr.Character and targetPlr.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then teleportToPos(hrp.Position) end
+            end
+        end)
+    end
+    ui.followList.Size = UDim2.new(1, 0, 0, #names * 44)
+end
+
+-- ================= أمان إعادة الظهور =================
+-- الطيران يتوقف عند إعادة الظهور (أجزاؤه تخص الشخصية القديمة)،
+-- والوضع الإلهي والسرعة/القفز يعاد تطبيقهما على الشخصية الجديدة.
+LocalPlayer.CharacterAdded:Connect(function()
+    if flyOn then
+        flyOn = false
+        stopFlyParts()
+        if ui.flyUpBtn then ui.flyUpBtn.Visible = false end
+        if ui.flyDownBtn then ui.flyDownBtn.Visible = false end
+    end
+    task.wait(0.5)
+    applySpeed()
+    pcall(refreshUI)
+end)
+
 local function buildGui()
 	if screenGui then
 		pcall(function() screenGui:Destroy() end)
@@ -964,7 +1423,7 @@ local function buildGui()
 	local cardStatus = makeCard(scroll)
 	sectionLabel(cardStatus, "📊 الحالة")
 	ui.diagLabel = Instance.new("TextLabel")
-	ui.diagLabel.Size = UDim2.new(1, 0, 0, 168)
+	ui.diagLabel.Size = UDim2.new(1, 0, 0, 186)
 	ui.diagLabel.BackgroundColor3 = CARD_DARK
 	ui.diagLabel.TextColor3 = TEXT_WHITE
 	ui.diagLabel.Font = Enum.Font.GothamBold
@@ -991,114 +1450,222 @@ local function buildGui()
 	slc.CornerRadius = UDim.new(0, 10)
 	slc.Parent = ui.statusLabel
 
-	-- بطاقة التصويب الصامت
-	local cardAim = makeCard(scroll)
-	sectionLabel(cardAim, "🎯 التصويب الصامت")
-	makeToggle(cardAim, "silentAim", "تصويب صامت", false, function(v) setSilentAim(v) end)
-	sectionLabel(cardAim, "طريقة التصويب")
-	local rowMethod = makeRow(cardAim)
-	ui.methodBtns = {}
-	local methods = { { "mouse", "الفأرة" }, { "remote", "الريموت" }, { "camera", "كاميرا ⚠️" } }
-	for _, m in ipairs(methods) do
-		local b = makeButton(rowMethod, m[2], 96)
-		addPress(b)
-		ui.methodBtns[m[1]] = b
-		b.MouseButton1Click:Connect(function() setAimMethod(m[1]) end)
-	end
-	local camNote = Instance.new("TextLabel")
-	camNote.Size = UDim2.new(1, 0, 0, 30)
-	camNote.BackgroundTransparency = 1
-	camNote.Text = "⚠️ طريقة الكاميرا ليست صامتة: الكاميرا تتحرك وأنت تطلق النار"
-	camNote.TextColor3 = TEXT_MUTED
-	camNote.Font = Enum.Font.GothamBold
-	camNote.TextSize = 12
-	camNote.TextXAlignment = Enum.TextXAlignment.Right
-	camNote.TextWrapped = true
-	camNote.Parent = cardAim
 
-	-- بطاقة نسبة الإصابة
-	local cardChance = makeCard(scroll)
-	sectionLabel(cardChance, "🎲 نسبة الإصابة")
-	local rowChance = makeRow(cardChance)
-	ui.chanceBtns = {}
-	for _, c in ipairs({ 25, 50, 75, 100 }) do
-		local b = makeButton(rowChance, tostring(c) .. "%", 72)
-		addPress(b)
-		ui.chanceBtns[c] = b
-		b.MouseButton1Click:Connect(function()
-			hitChance = c
-			print("⛓️ نسبة الإصابة: " .. c .. "%")
-		end)
-	end
+    -- بطاقة 1: التصويب الصامت
+    local cardAim = makeCard(scroll)
+    sectionLabel(cardAim, "🎯 سايلنت إيم")
+    noteLabel(cardAim, "يوجّه طلقاتك أنت فقط لرأس الهدف — لا يطلق النار من نفسه")
+    makeToggle(cardAim, "silentAim", "تصويب صامت", false, function(v) setSilentAim(v) end)
+    sectionLabel(cardAim, "طريقة التصويب")
+    local rowMethod = makeRow(cardAim)
+    ui.methodBtns = {}
+    local methods = { { "mouse", "الفأرة" }, { "remote", "الريموت" }, { "camera", "كاميرا ⚠️" } }
+    for _, m in ipairs(methods) do
+        local b = makeButton(rowMethod, m[2], 96)
+        addPress(b)
+        ui.methodBtns[m[1]] = b
+        b.MouseButton1Click:Connect(function() setAimMethod(m[1]) end)
+    end
+    local camNote = Instance.new("TextLabel")
+    camNote.Size = UDim2.new(1, 0, 0, 30)
+    camNote.BackgroundTransparency = 1
+    camNote.Text = "⚠️ طريقة الكاميرا ليست صامتة: الكاميرا تتحرك وأنت تطلق النار"
+    camNote.TextColor3 = TEXT_MUTED
+    camNote.Font = Enum.Font.GothamBold
+    camNote.TextSize = 12
+    camNote.TextXAlignment = Enum.TextXAlignment.Right
+    camNote.TextWrapped = true
+    camNote.Parent = cardAim
+    makeToggle(cardAim, "ignoreTeam", "🛡️ تجاهل فريقي", true, function(v) ignoreSameTeam = v end)
+    noteLabel(cardAim, "نسبة الإصابة")
+    local rowChance = makeRow(cardAim)
+    ui.chanceBtns = {}
+    for _, c in ipairs({ 25, 50, 75, 100 }) do
+        local b = makeButton(rowChance, tostring(c) .. "%", 72)
+        addPress(b)
+        ui.chanceBtns[c] = b
+        b.MouseButton1Click:Connect(function()
+            hitChance = c
+            print("⛓️ نسبة الإصابة: " .. c .. "%")
+        end)
+    end
+    noteLabel(cardAim, "مدى الرؤية (درجات)")
+    local rowFov = makeRow(cardAim)
+    ui.fovBtns = {}
+    for _, f in ipairs({ 45, 60, 90, 120, 180 }) do
+        local b = makeButton(rowFov, tostring(f) .. "°", 58)
+        addPress(b)
+        ui.fovBtns[f] = b
+        b.MouseButton1Click:Connect(function() aimFov = f end)
+    end
+    noteLabel(cardAim, "أقصى مسافة (ستود)")
+    local rowRange = makeRow(cardAim)
+    ui.rangeBtns = {}
+    for _, r in ipairs({ 100, 200, 500, 1000 }) do
+        local b = makeButton(rowRange, tostring(r), 72)
+        addPress(b)
+        ui.rangeBtns[r] = b
+        b.MouseButton1Click:Connect(function() aimRange = r end)
+    end
+    makeToggle(cardAim, "visOnly", "فقط إذا كان الهدف مرئياً", true, function(v)
+        aimVisibleOnly = v
+        if v then aimThroughWalls = false end
+    end)
+    makeToggle(cardAim, "throughWalls", "التصويب عبر الجدران", false, function(v)
+        aimThroughWalls = v
+        if v then aimVisibleOnly = false end
+    end)
+    sectionLabel(cardAim, "👤 اللاعبون — اضغط على لاعب لاستبعاده")
+    local rowPlayers = makeRow(cardAim)
+    ui.refreshBtn = makeButton(rowPlayers, "🔄 تحديث", 146)
+    addPress(ui.refreshBtn)
+    ui.refreshBtn.MouseButton1Click:Connect(function()
+        refreshPlayerList(true)
+    end)
+    ui.clearBtn = makeButton(rowPlayers, "🧹 مسح الكل", 146)
+    addPress(ui.clearBtn)
+    ui.clearBtn.MouseButton1Click:Connect(function()
+        clearExcluded()
+    end)
+    ui.excludedLabel = Instance.new("TextLabel")
+    ui.excludedLabel.Size = UDim2.new(1, 0, 0, 26)
+    ui.excludedLabel.BackgroundTransparency = 1
+    ui.excludedLabel.Text = "المستبعدون من الاستهداف: 0"
+    ui.excludedLabel.TextColor3 = TEXT_MUTED
+    ui.excludedLabel.Font = Enum.Font.GothamBold
+    ui.excludedLabel.TextSize = 13
+    ui.excludedLabel.TextXAlignment = Enum.TextXAlignment.Right
+    ui.excludedLabel.Parent = cardAim
+    ui.playerList = Instance.new("Frame")
+    ui.playerList.Size = UDim2.new(1, 0, 0, 0)
+    ui.playerList.BackgroundTransparency = 1
+    ui.playerList.Parent = cardAim
+    local plLayout = Instance.new("UIListLayout")
+    plLayout.Padding = UDim.new(0, 4)
+    plLayout.Parent = ui.playerList
 
-	-- بطاقة المدى والرؤية
-	local cardRange = makeCard(scroll)
-	sectionLabel(cardRange, "👁️ المدى والرؤية")
-	noteLabel(cardRange, "مدى الرؤية (درجات)")
-	local rowFov = makeRow(cardRange)
-	ui.fovBtns = {}
-	for _, f in ipairs({ 45, 60, 90, 120, 180 }) do
-		local b = makeButton(rowFov, tostring(f) .. "°", 58)
-		addPress(b)
-		ui.fovBtns[f] = b
-		b.MouseButton1Click:Connect(function() aimFov = f end)
-	end
+    -- بطاقة 2: الطيران
+    local cardFly = makeCard(scroll)
+    sectionLabel(cardFly, "✈️ الطيران")
+    noteLabel(cardFly, "طِر بيدك — جويستيك أو WASD للحركة، والأسهم للصعود والنزول")
+    makeToggle(cardFly, "fly", "الطيران", false, function(v) setFly(v) end)
+    noteLabel(cardFly, "سرعة الطيران")
+    local rowFlySpeed = makeRow(cardFly)
+    ui.flySpeedBtns = {}
+    for _, s in ipairs({ 16, 50, 100 }) do
+        local b = makeButton(rowFlySpeed, tostring(s), 96)
+        addPress(b)
+        ui.flySpeedBtns[s] = b
+        b.MouseButton1Click:Connect(function() flySpeed = s end)
+    end
+    local rowFlyBtns = makeRow(cardFly)
+    ui.flyUpBtn = makeButton(rowFlyBtns, "▲", 146)
+    ui.flyUpBtn.Visible = false
+    ui.flyUpBtn.MouseButton1Down:Connect(function() flyUp = true end)
+    ui.flyUpBtn.MouseButton1Up:Connect(function() flyUp = false end)
+    ui.flyDownBtn = makeButton(rowFlyBtns, "▼", 146)
+    ui.flyDownBtn.Visible = false
+    ui.flyDownBtn.MouseButton1Down:Connect(function() flyDown = true end)
+    ui.flyDownBtn.MouseButton1Up:Connect(function() flyDown = false end)
 
-	noteLabel(cardRange, "أقصى مسافة (ستود)")
-	local rowRange = makeRow(cardRange)
-	ui.rangeBtns = {}
-	for _, r in ipairs({ 100, 200, 500, 1000 }) do
-		local b = makeButton(rowRange, tostring(r), 72)
-		addPress(b)
-		ui.rangeBtns[r] = b
-		b.MouseButton1Click:Connect(function() aimRange = r end)
-	end
+    -- بطاقة 3: اختراق الجدران
+    local cardNoclip = makeCard(scroll)
+    sectionLabel(cardNoclip, "👻 اختراق الجدران")
+    noteLabel(cardNoclip, "امشِ عبر الجدران والأبواب — قد يكشفه تحقق السيرفر")
+    makeToggle(cardNoclip, "noclip", "اختراق الجدران", false, function(v) noclipOn = v end)
 
-	makeToggle(cardRange, "visOnly", "فقط إذا كان الهدف مرئياً", true, function(v)
-		aimVisibleOnly = v
-		if v then aimThroughWalls = false end
-	end)
-	makeToggle(cardRange, "throughWalls", "التصويب عبر الجدران", false, function(v)
-		aimThroughWalls = v
-		if v then aimVisibleOnly = false end
-	end)
+    -- بطاقة 4: الحماية
+    local cardProtect = makeCard(scroll)
+    sectionLabel(cardProtect, "🛡️ حماية")
+    noteLabel(cardProtect, "وضع إلهي — يعيد صحتك للكاملة باستمرار")
+    makeToggle(cardProtect, "god", "وضع إلهي (لا تموت)", false, function(v) godOn = v end)
+    noteLabel(cardProtect, "حماية الطرد والبان مفعّلة دائماً: تمنع أوامر الطرد من جهازك وتعيد تثبيت الهوكات وبناء القائمة تلقائياً")
 
-	-- بطاقة اللاعبين
-	local cardPlayers = makeCard(scroll)
-	sectionLabel(cardPlayers, "👤 اللاعبون — اضغط على لاعب لاستبعاده")
-	local rowPlayers = makeRow(cardPlayers)
-	ui.refreshBtn = makeButton(rowPlayers, "🔄 تحديث", 146)
-	addPress(ui.refreshBtn)
-	ui.refreshBtn.MouseButton1Click:Connect(function()
-		refreshPlayerList(true)
-	end)
-	ui.clearBtn = makeButton(rowPlayers, "🧹 مسح الكل", 146)
-	addPress(ui.clearBtn)
-	ui.clearBtn.MouseButton1Click:Connect(function()
-		clearExcluded()
-	end)
-	ui.excludedLabel = Instance.new("TextLabel")
-	ui.excludedLabel.Size = UDim2.new(1, 0, 0, 26)
-	ui.excludedLabel.BackgroundTransparency = 1
-	ui.excludedLabel.Text = "المستبعدون من الاستهداف: 0"
-	ui.excludedLabel.TextColor3 = TEXT_MUTED
-	ui.excludedLabel.Font = Enum.Font.GothamBold
-	ui.excludedLabel.TextSize = 13
-	ui.excludedLabel.TextXAlignment = Enum.TextXAlignment.Right
-	ui.excludedLabel.Parent = cardPlayers
-	ui.playerList = Instance.new("Frame")
-	ui.playerList.Size = UDim2.new(1, 0, 0, 0)
-	ui.playerList.BackgroundTransparency = 1
-	ui.playerList.Parent = cardPlayers
-	local plLayout = Instance.new("UIListLayout")
-	plLayout.Padding = UDim.new(0, 4)
-	plLayout.Parent = ui.playerList
+    -- بطاقة 5: السرعة والقفز
+    local cardSpeed = makeCard(scroll)
+    sectionLabel(cardSpeed, "🏃 السرعة والقفز")
+    noteLabel(cardSpeed, "سرعة المشي")
+    local rowWalk = makeRow(cardSpeed)
+    ui.walkBtns = {}
+    for _, s in ipairs({ 16, 22, 30, 50 }) do
+        local b = makeButton(rowWalk, tostring(s), 72)
+        addPress(b)
+        ui.walkBtns[s] = b
+        b.MouseButton1Click:Connect(function()
+            walkSpeed = s
+            applySpeed()
+        end)
+    end
+    noteLabel(cardSpeed, "قوة القفز")
+    local rowJump = makeRow(cardSpeed)
+    ui.jumpBtns = {}
+    for _, j in ipairs({ 50, 70, 100 }) do
+        local b = makeButton(rowJump, tostring(j), 96)
+        addPress(b)
+        ui.jumpBtns[j] = b
+        b.MouseButton1Click:Connect(function()
+            jumpPower = j
+            applySpeed()
+        end)
+    end
+    makeToggle(cardSpeed, "sprint", "ركض لا نهائي", false, function(v)
+        sprintOn = v
+        applySpeed()
+    end)
+
+    -- بطاقة 6: ESP للاعبين
+    local cardEsp = makeCard(scroll)
+    sectionLabel(cardEsp, "👁️ ESP للاعبين")
+    noteLabel(cardEsp, "يظهر اسم كل لاعب وفريقه ومسافته وصحته")
+    makeToggle(cardEsp, "playerEsp", "ESP للاعبين", false, function(v)
+        playerEspOn = v
+        refreshPlayerEsp()
+    end)
+
+    -- بطاقة 7: إظهار الأسلحة
+    local cardWeapons = makeCard(scroll)
+    sectionLabel(cardWeapons, "🔫 إظهار الأسلحة")
+    noteLabel(cardWeapons, "يعلّم الأسلحة الملقاة على الأرض باسمها والمسافة")
+    makeToggle(cardWeapons, "weaponEsp", "🔫 إظهار الأسلحة", false, function(v)
+        weaponEspOn = v
+        refreshWeaponEsp()
+    end)
+    noteLabel(cardWeapons, "تُظهر الأسلحة الملقاة على الأرض فقط — التقطها بنفسك")
+
+    -- بطاقة 8: التنقل
+    local cardTp = makeCard(scroll)
+    sectionLabel(cardTp, "🗺️ التنقل")
+    local rowTp = makeRow(cardTp)
+    ui.saveWpBtn = makeButton(rowTp, "📍 حفظ نقطة", 146)
+    addPress(ui.saveWpBtn)
+    ui.saveWpBtn.MouseButton1Click:Connect(function() saveWaypoint() end)
+    ui.nearestBtn = makeButton(rowTp, "👤 أقرب لاعب", 146)
+    addPress(ui.nearestBtn)
+    ui.nearestBtn.MouseButton1Click:Connect(function() teleportToNearest() end)
+    noteLabel(cardTp, "نقاطي المحفوظة (حتى 5) — اضغط على نقطة للانتقال إليها")
+    ui.waypointList = Instance.new("Frame")
+    ui.waypointList.Size = UDim2.new(1, 0, 0, 0)
+    ui.waypointList.BackgroundTransparency = 1
+    ui.waypointList.Parent = cardTp
+    local wpLayout = Instance.new("UIListLayout")
+    wpLayout.Padding = UDim.new(0, 4)
+    wpLayout.Parent = ui.waypointList
+    sectionLabel(cardTp, "👤 اضغط على لاعب للانتقال إليه")
+    ui.followList = Instance.new("Frame")
+    ui.followList.Size = UDim2.new(1, 0, 0, 0)
+    ui.followList.BackgroundTransparency = 1
+    ui.followList.Parent = cardTp
+    local flLayout = Instance.new("UIListLayout")
+    flLayout.Padding = UDim.new(0, 4)
+    flLayout.Parent = ui.followList
+    rebuildWaypointButtons()
+    refreshFollowList()
 
 	-- تذييل: الصادق
 	local footer = Instance.new("TextLabel")
 	footer.Size = UDim2.new(1, 0, 0, 26)
 	footer.BackgroundTransparency = 1
-	footer.Text = "الصادق • Valley Prison v4"
+	footer.Text = "الصادق • الشامل v1"
 	footer.TextColor3 = GOLD
 	footer.Font = Enum.Font.GothamBold
 	footer.TextSize = 14
@@ -1142,6 +1709,7 @@ local function buildDiagText()
 	table.insert(lines, "هوك الفأرة: " .. (mouseHookInstalled and "نعم ✅" or "لا ❌"))
 	table.insert(lines, "هوك الريموت: " .. (remoteHookInstalled and "نعم ✅" or "لا ❌"))
 	table.insert(lines, "حماية الطرد: " .. (antiKickInstalled and "نعم ✅" or "لا ❌"))
+	table.insert(lines, "تجاهل فريقي: " .. (ignoreSameTeam and "نعم ✅" or "لا ❌"))
 	local targetText = "لا يوجد هدف"
 	if aimTarget then
 		targetText = aimTarget.DisplayName .. " [" .. teamLabelFor(aimTarget) .. "]"
@@ -1177,6 +1745,18 @@ function refreshUI()
 	syncToggle("silentAim", silentAimOn)
 	syncToggle("visOnly", aimVisibleOnly)
 	syncToggle("throughWalls", aimThroughWalls)
+	syncToggle("ignoreTeam", ignoreSameTeam)
+	syncToggle("fly", flyOn)
+	syncToggle("noclip", noclipOn)
+	syncToggle("god", godOn)
+	syncToggle("sprint", sprintOn)
+	syncToggle("playerEsp", playerEspOn)
+	syncToggle("weaponEsp", weaponEspOn)
+	if ui.flyUpBtn then ui.flyUpBtn.Visible = flyOn end
+	if ui.flyDownBtn then ui.flyDownBtn.Visible = flyOn end
+	for s, b in pairs(ui.flySpeedBtns or {}) do setActive(b, flySpeed == s) end
+	for s, b in pairs(ui.walkBtns or {}) do setActive(b, walkSpeed == s) end
+	for j, b in pairs(ui.jumpBtns or {}) do setActive(b, jumpPower == j) end
 
 	for m, b in pairs(ui.methodBtns or {}) do setActive(b, aimMethod == m) end
 	for c, b in pairs(ui.chanceBtns or {}) do setActive(b, hitChance == c) end
@@ -1240,7 +1820,7 @@ function refreshPlayerList(force)
 end
 
 -- ================= التشغيل =================
-print("⛓️ سكربت الصادق v4 يعمل! تصويب صامت فقط — اضغط زر ⛓️ لفتح القائمة")
+print("⛓️ سكربت الصادق الشامل v1 يعمل! اضغط زر ⛓️ لفتح الكتالوج")
 installAntiKick()
 installMouseHook()
 installRemoteHook()
@@ -1257,5 +1837,20 @@ task.spawn(function()
 	while true do
 		task.wait(3)
 		refreshPlayerList(false)
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(1)
+		refreshPlayerEsp()
+		refreshWeaponEsp()
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(3)
+		refreshFollowList()
 	end
 end)
