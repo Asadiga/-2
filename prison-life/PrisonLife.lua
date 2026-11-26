@@ -1,11 +1,6 @@
 -- ============================================================
 --  ⛓️ سكربت الصادق — حياة السجن (Alsadig Prison Life)
---  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v7)
---  v7: سايلنت إيم حقيقي — طريقة Mouse هي الافتراضية الآن: يوجّه
---      Mouse.Hit و Mouse.Target إلى رأس أقرب شخص، فتذهب طلقتك أنت
---      إلى رأسه أينما صوّبت، دون تحريك الكاميرا ودون لمس أي ريموت.
---      الاستهداف صار بالأقرب مسافةً (لا الأقرب لوسط الشاشة)،
---      والدائرة بقيت خياراً بصرياً فقط.
+--  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v6)
 --  v6: إصلاح بنيوي للهوكات — هوك __namecall لا يُثبّت إلا عند
 --      الحاجة (منع الطرد مفعّل أو طريقة Remote)، ومنع الطرد صار
 --      متوقفاً افتراضياً. جسم الهوك كله داخل pcall: أي خطأ يمرّر
@@ -35,7 +30,7 @@
 --   • كشف الأسلحة والأدوات في العالم (مسدسات، سكاكين، مطارق، بطاقات)
 --   • انتقال فوري: قاعدة المجرمين، الساحة، المجاري، مخزن الأسلحة، الزنازين
 --   • زر هروب: ينقلك لقاعدة المجرمين فتصبح مجرماً
---   • سايلنت إيم للأسلحة النارية: طلقتك تذهب لرأس أقرب شخص + نسبة إصابة + قائمة استثناء
+--   • سايلنت إيم للأسلحة النارية: دائرة تصويب + نسبة إصابة + قائمة استثناء
 --   • مساعدة قتال قريب (سكين/مطرقة): توجيه الضربة لأقرب عدو
 --   • طيران، عبور جدران، سرعة وقفز، وضع عدم الموت، حماية من الطرد والقذف
 -- ============================================================
@@ -63,7 +58,7 @@ local S = {
     playerESP = false,
     weaponESP = false,
     silentAim = false,
-    aimMethod = "Mouse",        -- Mouse (افتراضي) / Camera / Remote (تعلّم)
+    aimMethod = "Camera",       -- Camera (افتراضي) / Mouse / Remote (تعلّم)
     cameraPreAim = true,        -- تصويب كاميرا مستمر كل إطار (طريقة Camera)
     remoteRewrite = false,      -- إعادة توجيه الريموت (تجريبي) — متوقف افتراضياً
     aimFov = 180,
@@ -258,7 +253,7 @@ local title = makeLabel(header, "⛓️ سكربت الصادق — حياة ا�
 title.Size = UDim2.new(1, -60, 0, 26)
 title.Position = UDim2.new(0, 14, 0, 8)
 
-local subtitle = makeLabel(header, "Prison Life v7  •  تطوير الصادق", 12, C_ORANGE, false)
+local subtitle = makeLabel(header, "Prison Life v6  •  تطوير الصادق", 12, C_ORANGE, false)
 subtitle.Size = UDim2.new(1, -60, 0, 20)
 subtitle.Position = UDim2.new(0, 14, 0, 36)
 
@@ -691,24 +686,28 @@ local function rollHit()
     return hitRoll
 end
 
--- الاستهداف (v7): أقرب عدو حيّ بالمسافة ضمن المدى — لا الأقرب
--- لوسط الشاشة. الدائرة بقيت خياراً بصرياً فقط ولا تقيّد الاختيار.
--- "تجاهل فريقي" مفعّل افتراضياً (أقرب عدو)؛ إيقافه يستهدف أقرب
--- شخص حرفياً. قائمة الاستثناء ونسبة الإصابة كما هي.
 local function pickTarget()
     currentTarget = nil
     currentTargetPart = nil
     if not S.silentAim then return end
+    local vp = Camera.ViewportSize
+    local center = Vector2.new(vp.X / 2, vp.Y / 2)
     local bestDist = math.huge
     for _, plr in ipairs(Players:GetPlayers()) do
         if isEnemy(plr) and isAlive(plr) then
-            local dist = distanceTo(plr)
-            if dist <= S.aimRange and dist < bestDist then
-                local part = aimPartOf(plr)
-                if part then
-                    bestDist = dist
-                    currentTarget = plr
-                    currentTargetPart = part
+            local part = aimPartOf(plr)
+            if part then
+                local dist = distanceTo(plr)
+                if dist <= S.aimRange then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen then
+                        local d2 = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        if d2 <= S.aimFov and d2 < bestDist then
+                            bestDist = d2
+                            currentTarget = plr
+                            currentTargetPart = part
+                        end
+                    end
                 end
             end
         end
@@ -1008,18 +1007,13 @@ local function installMouseHook()
             if self ~= Mouse then
                 return oldIndex(self, key)
             end
-            -- كل الشروط داخل pcall (v6): أي خطأ → القيمة الأصلية.
-            -- (v7) هذه الطريقة هي الافتراضية: لا تحرّك الكاميرا ولا
-            -- تلمس أي ريموت — الأسلحة التي تقرأ Mouse.Hit ترسل
-            -- الطلقة إلى رأس الهدف مباشرة.
+            -- كل الشروط داخل pcall (v6): أي خطأ → القيمة الأصلية
             local ok, val = pcall(function()
                 if S.silentAim and S.aimMethod == "Mouse"
                     and currentTargetPart and holdingTool() and rollHit() then
                     if key == "Hit" then
-                        lastShotState = "ماوس نحو الرأس 🎯"
                         return CFrame.new(currentTargetPart.Position)
                     elseif key == "Target" then
-                        lastShotState = "ماوس نحو الرأس 🎯"
                         return currentTargetPart
                     end
                 end
@@ -1428,13 +1422,13 @@ makeToggle(secAim, "تفعيل السايلنت إيم", false, function(v)
     updateFovCircle()
     toast(v and "🎯 السايلنت إيم: يعمل" or "🎯 السايلنت إيم: متوقف")
 end)
-makeCycle(secAim, "الطريقة", {"Mouse", "Camera", "Remote"}, 1, function(v)
+makeCycle(secAim, "الطريقة", {"Camera", "Mouse", "Remote"}, 1, function(v)
     S.aimMethod = v
     installHooks()
     installMouseHook()
     bindCameraAim()
 end)
-makeInfo(secAim, "Mouse الافتراضية: طلقتك تذهب لرأس أقرب شخص دون تحريك الكاميرا. Remote = وضع تعلّم (يسجّل الريموتات فقط).")
+makeInfo(secAim, "Camera الافتراضية والآمنة. Remote = وضع تعلّم (يسجّل الريموتات فقط).")
 makeToggle(secAim, "🎥 تصويب كاميرا مستمر", true, function(v)
     S.cameraPreAim = v
     toast(v and "🎥 تصويب الكاميرا المستمر: يعمل" or "🎥 تصويب الكاميرا المستمر: متوقف")
@@ -1446,7 +1440,6 @@ end)
 -- شريط تشخيص مضغوط أعلى القسم حتى لا يضيع العدّاد أسفل القائمة
 local aimShotStrip = makeInfo(secAim, "آخر طلقة: —")
 local aimCountStrip = makeInfo(secAim, "طلقات مُعاد توجيهها: 0 | مرّت: 0")
-local aimTargetStrip = makeInfo(secAim, "الطريقة: Mouse • الهدف: —")
 makeCycle(secAim, "حجم الدائرة", {90, 140, 180, 240, 320}, 3, function(v)
     S.aimFov = v
     updateFovCircle()
@@ -1609,7 +1602,7 @@ local function updateDiagnostics()
             .. " [" .. TEAM_AR[teamKind(currentTarget)] .. "]"
             .. " 📏 " .. math.floor(distanceTo(currentTarget))
     else
-        diagTarget.Text = "الهدف: لا يوجد (ضمن المدى)"
+        diagTarget.Text = "الهدف: لا يوجد (داخل الدائرة)"
     end
     diagAim.Text = "السايلنت إيم: " .. (S.silentAim and "يعمل" or "متوقف")
         .. " • الطريقة: " .. S.aimMethod
@@ -1620,7 +1613,6 @@ local function updateDiagnostics()
         .. " | مرّت: " .. shotsPassed
     aimShotStrip.Text = diagShot.Text
     aimCountStrip.Text = diagShotCount.Text
-    aimTargetStrip.Text = "الطريقة: " .. S.aimMethod .. " • " .. diagTarget.Text
     for i = 1, 5 do
         local e = remoteLog[i]
         diagRemoteLines[i].Text = e and ("• " .. e.text) or "• —"
@@ -1643,7 +1635,6 @@ end
 
 -- ================= الحلقات الرئيسية =================
 installHooks()
-installMouseHook()
 bindGodMode()
 refreshExclusionList()
 updateFovCircle()
