@@ -1,6 +1,11 @@
 -- ============================================================
 --  ⛓️ سكربت الصادق — حياة السجن (Alsadig Prison Life)
---  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v4)
+--  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v5)
+--  v5: تصويب كاميرا مستمر: الكاميرا تتجه لرأس الهدف كل إطار أثناء
+--      حمل السلاح (لا عند الإطلاق فقط)، لأن اللعبة قد تقرأ نقطة
+--      التصويب قبل حدث التفعيل فتذهب الطلقة للمكان القديم. وحماية
+--      انتقالات: هبوط أعلى الهدف بـ 3 ستود، وتحذير للمجرم قبل دخول
+--      منطقة السجن (ضغطتان للتأكيد)، وتنبيه إن مات بعد الانتقال.
 --  v4: طريقة الكاميرا هي الافتراضية (لا تلمس أي ريموت فلا تفسد
 --      السلاح أبداً). طريقة الريموت صارت "وضع تعلّم": تسجّل أسماء
 --      الريموتات وأنواع وسائطها في التشخيص دون إعادة كتابة أي شيء،
@@ -48,6 +53,7 @@ local S = {
     weaponESP = false,
     silentAim = false,
     aimMethod = "Camera",       -- Camera (افتراضي) / Mouse / Remote (تعلّم)
+    cameraPreAim = true,        -- تصويب كاميرا مستمر كل إطار (طريقة Camera)
     remoteRewrite = false,      -- إعادة توجيه الريموت (تجريبي) — متوقف افتراضياً
     aimFov = 180,
     aimRange = 500,
@@ -241,7 +247,7 @@ local title = makeLabel(header, "⛓️ سكربت الصادق — حياة ا�
 title.Size = UDim2.new(1, -60, 0, 26)
 title.Position = UDim2.new(0, 14, 0, 8)
 
-local subtitle = makeLabel(header, "Prison Life v4  •  تطوير الصادق", 12, C_ORANGE, false)
+local subtitle = makeLabel(header, "Prison Life v5  •  تطوير الصادق", 12, C_ORANGE, false)
 subtitle.Size = UDim2.new(1, -60, 0, 20)
 subtitle.Position = UDim2.new(0, 14, 0, 36)
 
@@ -1005,6 +1011,23 @@ local function bindCameraAim()
     LocalPlayer.CharacterAdded:Connect(hookChar)
 end
 
+-- تصويب كاميرا مستمر (v5): أثناء حمل السلاح ووجود هدف مقفل، تتجه
+-- الكاميرا لرأس الهدف كل إطار — لا لحظة الإطلاق فقط — لأن اللعبة قد
+-- تقرأ نقطة التصويب قبل حدث التفعيل فتذهب الطلقة للمكان القديم.
+-- لا يلمس أي ريموت أبداً، فلا يستطيع إفساد السلاح.
+local function updateCameraPreAim()
+    if not S.silentAim or S.aimMethod ~= "Camera" or not S.cameraPreAim then return end
+    if not currentTargetPart or not holdingTool() or not rollHit() then return end
+    pcall(function()
+        local camPos = Camera.CFrame.Position
+        local tp = currentTargetPart.Position
+        if (tp - camPos).Magnitude > 0.001 then
+            Camera.CFrame = CFrame.lookAt(camPos, tp)
+            lastShotState = "تصويب كاميرا مستمر 🎯"
+        end
+    end)
+end
+
 -- ================= مساعدة القتال القريب =================
 local MELEE_KEYWORDS = {"knife", "shiv", "hammer", "crude"}
 local function isMeleeTool(tool)
@@ -1233,9 +1256,22 @@ local function teleportTo(pos, label)
         S.lastTeleport = label .. ": فشل (لا شخصية)"
         return false
     end
-    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 4, 0))
+    local charBefore = getChar()
+    local wasAlive = isAlive(LocalPlayer)
+    -- الهبوط أعلى الهدف بـ 3 ستود حتى لا نعلق داخل الهندسة، ثم سقوط طبيعي
+    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
     S.lastTeleport = label .. ": تم ✓"
     toast("✅ انتقلت إلى: " .. label)
+    -- تحقق بعد ثانية: إن متّ بعد الانتقال فالهدف غير آمن (فراغ/هندسة/منطقة محظورة)
+    if wasAlive then
+        task.delay(1, function()
+            local charNow = getChar()
+            if charNow ~= charBefore or not isAlive(LocalPlayer) then
+                toast("💀 متّ بعد الانتقال — الهدف غير آمن")
+                S.lastTeleport = label .. ": متّ بعد الانتقال ⚠️"
+            end
+        end)
+    end
     return true
 end
 
@@ -1253,6 +1289,28 @@ local function teleportToPlace(keywords, label)
         toast("⚠️ تعذر تحديد موقع " .. label)
         S.lastTeleport = label .. ": تعذر الموقع"
     end
+end
+
+-- حماية انتقالات منطقة السجن (v5): إن كنت مجرماً، دخول السجن قد يقتلك
+-- (اللعبة تقتل/تعتقل المجرمين في المناطق المحظورة) — ضغطة أولى تحذّر،
+-- وضغطة ثانية على نفس الزر خلال 3 ثوانٍ تؤكّد الانتقال.
+local pendingPrisonTP = nil
+local pendingPrisonTPAt = 0
+local function guardedTeleport(keywords, label)
+    if teamKind(LocalPlayer) == "Criminal" then
+        local now = os.clock()
+        if pendingPrisonTP == label and (now - pendingPrisonTPAt) <= 3 then
+            pendingPrisonTP = nil
+            teleportToPlace(keywords, label)
+        else
+            pendingPrisonTP = label
+            pendingPrisonTPAt = now
+            toast("⚠️ أنت مجرم — دخول السجن قد يقتلك. اضغط مرة أخرى للتأكيد")
+            S.lastTeleport = label .. ": بانتظار تأكيد (مجرم)"
+        end
+        return
+    end
+    teleportToPlace(keywords, label)
 end
 
 local function teleportToNearestGun()
@@ -1326,6 +1384,10 @@ makeCycle(secAim, "الطريقة", {"Camera", "Mouse", "Remote"}, 1, function(v
     bindCameraAim()
 end)
 makeInfo(secAim, "Camera الافتراضية والآمنة. Remote = وضع تعلّم (يسجّل الريموتات فقط).")
+makeToggle(secAim, "🎥 تصويب كاميرا مستمر", true, function(v)
+    S.cameraPreAim = v
+    toast(v and "🎥 تصويب الكاميرا المستمر: يعمل" or "🎥 تصويب الكاميرا المستمر: متوقف")
+end)
 makeToggle(secAim, "🧪 إعادة توجيه الريموت (تجريبي)", false, function(v)
     S.remoteRewrite = v
     toast(v and "🧪 إعادة توجيه الريموت: تعمل (تجريبي)" or "🧪 إعادة توجيه الريموت: متوقفة")
@@ -1411,19 +1473,19 @@ makeButton(secTP, "🏭 قاعدة المجرمين (المستودع)", functio
     teleportToPlace({"warehouse", "criminal"}, "قاعدة المجرمين")
 end)
 makeButton(secTP, "🏟️ ساحة السجن", function()
-    teleportToPlace({"yard"}, "ساحة السجن")
+    guardedTeleport({"yard"}, "ساحة السجن")
 end)
 makeButton(secTP, "🕳️ المجاري", function()
     teleportToPlace({"sewer"}, "المجاري")
 end)
 makeButton(secTP, "🔫 مخزن الأسلحة (Armory)", function()
-    teleportToPlace({"armory", "armoury"}, "مخزن الأسلحة")
+    guardedTeleport({"armory", "armoury"}, "مخزن الأسلحة")
 end)
 makeButton(secTP, "🔒 الزنازين", function()
-    teleportToPlace({"cell"}, "الزنازين")
+    guardedTeleport({"cell"}, "الزنازين")
 end)
 makeButton(secTP, "🚪 بوابة السجن", function()
-    teleportToPlace({"gate"}, "بوابة السجن")
+    guardedTeleport({"gate"}, "بوابة السجن")
 end)
 makeButton(secTP, "🔫 أقرب سلاح", function() teleportToNearestGun() end)
 makeButton(secTP, "👤 أقرب لاعب", function() teleportToNearestPlayer() end)
@@ -1559,6 +1621,12 @@ end)
 
 RunService.Stepped:Connect(function()
     pcall(updateNoclip)
+end)
+
+-- تصويب الكاميرا المستمر يعمل قبل رسم كل إطار حتى تكون الكاميرا
+-- موجّهة للرأس أصلاً لحظة قراءة اللعبة لنقطة التصويب
+RunService.RenderStepped:Connect(function()
+    pcall(updateCameraPreAim)
 end)
 
 toast("⛓️ سكربت الصادق — حياة السجن جاهز! اضغط الزر البرتقالي")
