@@ -1,6 +1,12 @@
 -- ============================================================
 --  ⛓️ سكربت الصادق — حياة السجن (Alsadig Prison Life)
---  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v5)
+--  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v6)
+--  v6: إصلاح بنيوي للهوكات — هوك __namecall لا يُثبّت إلا عند
+--      الحاجة (منع الطرد مفعّل أو طريقة Remote)، ومنع الطرد صار
+--      متوقفاً افتراضياً. جسم الهوك كله داخل pcall: أي خطأ يمرّر
+--      الوسائط الأصلية كما هي، فلا يستطيع الهوك إيقاف السلاح.
+--      تصويب الكاميرا المستمر صار ناعماً (Lerp) بدل القفز الفوري،
+--      وسطر تشخيص جديد يوضح حالة الهوك.
 --  v5: تصويب كاميرا مستمر: الكاميرا تتجه لرأس الهدف كل إطار أثناء
 --      حمل السلاح (لا عند الإطلاق فقط)، لأن اللعبة قد تقرأ نقطة
 --      التصويب قبل حدث التفعيل فتذهب الطلقة للمكان القديم. وحماية
@@ -67,7 +73,7 @@ local S = {
     walkSpeed = 32,
     jumpPower = 75,
     godMode = false,
-    antiKick = true,
+    antiKick = false,
     antiFling = false,
     excluded = {},              -- [اسم اللاعب] = true
     lastTeleport = "—",
@@ -247,7 +253,7 @@ local title = makeLabel(header, "⛓️ سكربت الصادق — حياة ا�
 title.Size = UDim2.new(1, -60, 0, 26)
 title.Position = UDim2.new(0, 14, 0, 8)
 
-local subtitle = makeLabel(header, "Prison Life v5  •  تطوير الصادق", 12, C_ORANGE, false)
+local subtitle = makeLabel(header, "Prison Life v6  •  تطوير الصادق", 12, C_ORANGE, false)
 subtitle.Size = UDim2.new(1, -60, 0, 20)
 subtitle.Position = UDim2.new(0, 14, 0, 36)
 
@@ -731,23 +737,24 @@ local remoteLog = {}   -- قائمة مرتبة: الأحدث نشاطاً أو�
 local function logRemote(inst, method, args)
     local name = "?"
     pcall(function() name = inst.Name end)
-    local types = {}
-    for i = 1, args.n do
-        types[#types + 1] = typeof(args[i])
-    end
-    local sig = table.concat(types, ", ")
-    local key = name .. "|" .. method .. "|" .. sig
-    local text = name .. " (" .. method .. "): "
-        .. (sig ~= "" and sig or "بدون وسائط")
-    -- إن كان موجوداً: انقله للأمام حتى يبقى ريموت الإطلاق ظاهراً
+    -- فحص رخيص أولاً (v6): نفس الاسم والطريقة وعدد الوسائط؟ لا نبني
+    -- أي نصوص أنواع إلا لريموث جديد فعلاً حتى يبقى التسجيل خفيفاً.
     for i, e in ipairs(remoteLog) do
-        if e.key == key then
+        if e.name == name and e.method == method and e.n == args.n then
             table.remove(remoteLog, i)
             table.insert(remoteLog, 1, e)
             return
         end
     end
-    table.insert(remoteLog, 1, {key = key, text = text})
+    -- ريموت جديد: نبني نص الأنواع الآن فقط
+    local types = {}
+    for i = 1, args.n do
+        types[#types + 1] = typeof(args[i])
+    end
+    local sig = table.concat(types, ", ")
+    local text = name .. " (" .. method .. "): "
+        .. (sig ~= "" and sig or "بدون وسائط")
+    table.insert(remoteLog, 1, {name = name, method = method, n = args.n, text = text})
     while #remoteLog > 5 do
         table.remove(remoteLog)
     end
@@ -907,52 +914,79 @@ rewriteTable = function(t, headPos, headPart, depth)
     return out, changed
 end
 
+-- هل نحتاج هوك __namecall أصلاً؟ (v6) فقط لمنع الطرد أو طريقة Remote.
+-- في طريقتي Camera/Mouse مع إيقاف منع الطرد لا يُثبّت الهوك أبداً،
+-- فلا يمر أي FireServer في اللعبة عبر كودنا.
+local function hookNeeded()
+    return S.antiKick or S.aimMethod == "Remote"
+end
+
 local function installHooks()
     if hooksInstalled then return end
-    hooksInstalled = true
+    if not hookNeeded() then return end
     if not hookmetamethod then return end
+    hooksInstalled = true
 
-    -- هوك __namecall: منع الطرد + إعادة توجيه الريموت (دون منع أي طلقة أبداً)
+    -- هوك __namecall: منع الطرد + وضع تعلّم/إعادة توجيه الريموت.
+    -- القاعدة الذهبية (v6): جسم الهوك كله داخل pcall واحد — أي خطأ
+    -- في أي شرط (holdingTool/rollHit/الهدف) يمرّر الوسائط الأصلية
+    -- كما هي، فلا يستطيع الهوك إيقاف أي طلقة أو إفساد السلاح أبداً.
     pcall(function()
         local oldNamecall
         oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-            local method = getnamecallmethod and getnamecallmethod() or ""
-            -- منع الطرد
-            if S.antiKick and method == "Kick" and self == LocalPlayer then
-                return nil
+            -- تمرير مباشر: الهوك مثبّت لكن لا حاجة له الآن (كاميرا/ماوس
+            -- ومنع الطرد متوقف) — لا نلمس أي شيء ولا نقيّم أي شرط.
+            if not S.antiKick and S.aimMethod ~= "Remote" then
+                return oldNamecall(self, ...)
             end
-            -- طريقة الريموت (v4): وضع تعلّم افتراضياً — نسجّل اسم
-            -- الريموت وأنواع وسائطه فقط دون لمس أي شيء. إعادة الكتابة
-            -- لا تحدث إلا إذا فعّل المستخدم المفتاح التجريبي بنفسه،
-            -- وحينها تبقى البوابة الضيّقة (اسم إطلاق + شكل طلقة).
-            if S.silentAim and S.aimMethod == "Remote"
-                and (method == "FireServer" or method == "InvokeServer")
-                and holdingTool() then
-                local args = tpack(...)
-                pcall(logRemote, self, method, args)
-                if S.remoteRewrite and currentTargetPart and rollHit() then
-                    local ok, changed, isShoot = pcall(function()
-                        if not looksLikeShootRemote(self) then
-                            return false, false
+            -- كل منطق القرار داخل pcall: يعيد (الإجراء، الوسائط).
+            -- "block" = منع الطرد، "redirect" = طلقة مُعاد توجيهها،
+            -- أي شيء آخر (أو أي خطأ) = تمرير الوسائط الأصلية كما هي.
+            local ok, action, packed = pcall(function(...)
+                local method = getnamecallmethod and getnamecallmethod() or ""
+                -- منع الطرد
+                if S.antiKick and method == "Kick" and self == LocalPlayer then
+                    return "block", nil
+                end
+                -- طريقة الريموت (v4): وضع تعلّم افتراضياً — نسجّل اسم
+                -- الريموت وأنواع وسائطه فقط دون لمس أي شيء. إعادة الكتابة
+                -- لا تحدث إلا إذا فعّل المستخدم المفتاح التجريبي بنفسه،
+                -- وحينها تبقى البوابة الضيّقة (اسم إطلاق + شكل طلقة).
+                if S.silentAim and S.aimMethod == "Remote"
+                    and (method == "FireServer" or method == "InvokeServer")
+                    and holdingTool() then
+                    local args = tpack(...)
+                    pcall(logRemote, self, method, args)
+                    if S.remoteRewrite and currentTargetPart and rollHit() then
+                        local ok2, changed, isShoot = pcall(function()
+                            if not looksLikeShootRemote(self) then
+                                return false, false
+                            end
+                            if not argsLookShotShaped(args) then
+                                return false, false
+                            end
+                            local headPos = currentTargetPart.Position
+                            local ch = rewriteValueList(args, args.n, headPos,
+                                currentTargetPart, 0)
+                            return ch, true
+                        end)
+                        if ok2 and isShoot then
+                            if changed then
+                                shotsRedirected = shotsRedirected + 1
+                                lastShotState = "مُعاد توجيهها 🎯"
+                                return "redirect", args
+                            end
+                            shotsPassed = shotsPassed + 1
+                            lastShotState = "مرّت كما هي"
                         end
-                        if not argsLookShotShaped(args) then
-                            return false, false
-                        end
-                        local headPos = currentTargetPart.Position
-                        local ch = rewriteValueList(args, args.n, headPos,
-                            currentTargetPart, 0)
-                        return ch, true
-                    end)
-                    if ok and isShoot then
-                        if changed then
-                            shotsRedirected = shotsRedirected + 1
-                            lastShotState = "مُعاد توجيهها 🎯"
-                            return oldNamecall(self, tunpack(args, 1, args.n))
-                        end
-                        shotsPassed = shotsPassed + 1
-                        lastShotState = "مرّت كما هي"
                     end
                 end
+                return "pass", nil
+            end, ...)
+            if ok and action == "block" then
+                return nil
+            elseif ok and action == "redirect" and packed then
+                return oldNamecall(self, tunpack(packed, 1, packed.n))
             end
             return oldNamecall(self, ...)
         end)
@@ -961,23 +995,31 @@ end
 
 local function installMouseHook()
     if mouseHookInstalled then return end
-    mouseHookInstalled = true
+    -- (v6) لا يُثبّت إلا في طريقة Mouse — في غيرها لا يمر أي وصول
+    -- للماوس عبر كودنا أصلاً.
+    if S.aimMethod ~= "Mouse" then return end
     if not hookmetamethod then return end
+    mouseHookInstalled = true
     pcall(function()
         local oldIndex
         oldIndex = hookmetamethod(game, "__index", function(self, key)
-            if S.silentAim and S.aimMethod == "Mouse" and self == Mouse
-                and currentTargetPart and holdingTool() and rollHit() then
-                local ok, val = pcall(function()
+            -- تمرير مباشر لأي شيء ليس الماوس
+            if self ~= Mouse then
+                return oldIndex(self, key)
+            end
+            -- كل الشروط داخل pcall (v6): أي خطأ → القيمة الأصلية
+            local ok, val = pcall(function()
+                if S.silentAim and S.aimMethod == "Mouse"
+                    and currentTargetPart and holdingTool() and rollHit() then
                     if key == "Hit" then
                         return CFrame.new(currentTargetPart.Position)
                     elseif key == "Target" then
                         return currentTargetPart
                     end
-                    return nil
-                end)
-                if ok and val ~= nil then return val end
-            end
+                end
+                return nil
+            end)
+            if ok and val ~= nil then return val end
             return oldIndex(self, key)
         end)
     end)
@@ -1015,6 +1057,8 @@ end
 -- الكاميرا لرأس الهدف كل إطار — لا لحظة الإطلاق فقط — لأن اللعبة قد
 -- تقرأ نقطة التصويب قبل حدث التفعيل فتذهب الطلقة للمكان القديم.
 -- لا يلمس أي ريموت أبداً، فلا يستطيع إفساد السلاح.
+-- (v6) التوجيه ناعم الآن (Lerp) بدل القفز الفوري كل إطار، حتى لا
+-- يتعارض مع منظار السلاح أو يبدو كحركة آلية مفاجئة.
 local function updateCameraPreAim()
     if not S.silentAim or S.aimMethod ~= "Camera" or not S.cameraPreAim then return end
     if not currentTargetPart or not holdingTool() or not rollHit() then return end
@@ -1022,7 +1066,8 @@ local function updateCameraPreAim()
         local camPos = Camera.CFrame.Position
         local tp = currentTargetPart.Position
         if (tp - camPos).Magnitude > 0.001 then
-            Camera.CFrame = CFrame.lookAt(camPos, tp)
+            local targetCF = CFrame.lookAt(camPos, tp)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCF, 0.4)
             lastShotState = "تصويب كاميرا مستمر 🎯"
         end
     end)
@@ -1522,7 +1567,7 @@ makeToggle(secProt, "❤️ وضع عدم الموت", false, function(v)
     S.godMode = v
     if v then bindGodMode() end
 end)
-makeToggle(secProt, "🚫 منع الطرد (Anti-Kick)", true, function(v)
+makeToggle(secProt, "🚫 منع الطرد (Anti-Kick)", false, function(v)
     S.antiKick = v
     installHooks()
 end)
@@ -1547,6 +1592,7 @@ end
 local diagESP = makeInfo(secDiag, "الكشف: —")
 local diagTP = makeInfo(secDiag, "آخر انتقال: —")
 local diagHooks = makeInfo(secDiag, "الهوكات: —")
+local diagHookState = makeInfo(secDiag, "الهوك: —")
 
 local function updateDiagnostics()
     local myKind = teamKind(LocalPlayer)
@@ -1575,6 +1621,16 @@ local function updateDiagnostics()
     diagTP.Text = "آخر انتقال: " .. S.lastTeleport
     diagHooks.Text = "الهوكات: ريموت/طرد " .. (hooksInstalled and "مثبتة" or "غير مثبتة بعد")
         .. " • ماوس " .. (mouseHookInstalled and "مثبت" or "غير مثبت بعد")
+    -- حالة هوك __namecall (v6): غير مثبّت / تمرير فقط / منع طرد / ريموت
+    if not hooksInstalled then
+        diagHookState.Text = "الهوك: غير مثبّت"
+    elseif S.aimMethod == "Remote" then
+        diagHookState.Text = "الهوك: مثبّت (ريموت)"
+    elseif S.antiKick then
+        diagHookState.Text = "الهوك: مثبّت (منع طرد)"
+    else
+        diagHookState.Text = "الهوك: مثبّت (تمرير فقط)"
+    end
 end
 
 -- ================= الحلقات الرئيسية =================
