@@ -1,6 +1,8 @@
 -- ============================================================
 --  ⛓️ سكربت الصادق — حياة السجن (Alsadig Prison Life)
---  سكربت Prison Life لدلتا موبايل — تطوير الصادق
+--  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v2)
+--  v2: إصلاح منع الطلقات — الهوك لا يمنع أي طلقة أبداً، ويحافظ على
+--      نقطة بداية الطلقة مع إعادة توجيهها إلى رأس الهدف.
 -- ============================================================
 --  المميزات:
 --   • كشف اللاعبين (ESP) بألوان الفرق: أزرق حراس، برتقالي سجناء، أحمر مجرمين
@@ -228,7 +230,7 @@ local title = makeLabel(header, "⛓️ سكربت الصادق — حياة ا�
 title.Size = UDim2.new(1, -60, 0, 26)
 title.Position = UDim2.new(0, 14, 0, 8)
 
-local subtitle = makeLabel(header, "Prison Life  •  تطوير الصادق", 12, C_ORANGE, false)
+local subtitle = makeLabel(header, "Prison Life v2  •  تطوير الصادق", 12, C_ORANGE, false)
 subtitle.Size = UDim2.new(1, -60, 0, 20)
 subtitle.Position = UDim2.new(0, 14, 0, 36)
 
@@ -695,28 +697,143 @@ local function holdingTool()
     return c:FindFirstChildOfClass("Tool")
 end
 
--- إعادة كتابة وسيط واحد نحو الهدف
-local function rewriteArg(v, targetPos, depth)
-    depth = depth or 0
-    if typeof(v) == "Vector3" then
-        if v.Magnitude > 2 then return targetPos end
-        return v
-    elseif typeof(v) == "CFrame" then
-        return CFrame.new(targetPos)
-    elseif typeof(v) == "Instance" and v:IsA("BasePart") then
-        local plr = Players:GetPlayerFromCharacter(v.Parent)
-        if plr and plr ~= LocalPlayer and currentTargetPart then
-            return currentTargetPart
-        end
-        return v
-    elseif typeof(v) == "table" and depth < 2 then
-        local out = {}
-        for k, val in pairs(v) do
-            out[k] = rewriteArg(val, targetPos, depth + 1)
-        end
-        return out
+-- ================= إعادة كتابة آمنة للطلقات =================
+-- القاعدة الذهبية: الهوك لا يمنع أي طلقة أبداً. عند أي شك أو خطأ
+-- تمر الوسائط الأصلية كما هي. ونحافظ دائماً على نقطة بداية الطلقة
+-- (الأصل) لأن السيرفر يرفض الطلقة إن بدأت من مكان بعيد عن اللاعب.
+-- (إصلاح v2: كانت النسخة السابقة تستبدل الأصل نفسه بموقع الرأس
+--  فكان السيرفر يرفض الطلقة ولا يحدث شيء عند الضغط على الإطلاق.)
+
+local lastShotState = "—"
+
+local tpack = table.pack or function(...) return {n = select("#", ...), ...} end
+local tunpack = table.unpack or unpack
+
+local SHOOT_PATTERNS = {"shoot", "fire", "bullet", "gun", "hit", "damage",
+    "attack", "ray", "cast", "weapon", "projectile", "remote", "event",
+    "ranged", "throw"}
+
+local function looksLikeShootRemote(inst)
+    local ok, name = pcall(function() return string.lower(inst.Name) end)
+    if not ok or not name then return false end
+    for _, p in ipairs(SHOOT_PATTERNS) do
+        if string.find(name, p, 1, true) then return true end
     end
-    return v
+    return false
+end
+
+-- هل تحتوي الوسائط على جزء من شخصية لاعب آخر؟ (نمط "الجزء المصاب")
+local function argsHavePlayerPart(args)
+    for i = 1, args.n do
+        local v = args[i]
+        if typeof(v) == "Instance" and v:IsA("BasePart") and v.Parent then
+            local plr = Players:GetPlayerFromCharacter(v.Parent)
+            if plr and plr ~= LocalPlayer then return true end
+        end
+    end
+    return false
+end
+
+-- إعادة كتابة قيمة مفردة: موقع → الرأس، CFrame → نفس الأصل نحو الرأس،
+-- جزء لاعب آخر → رأس الهدف. يعيد القيمة + هل تغيّرت.
+local function rewriteSingle(v, headPos, headPart)
+    local tv = typeof(v)
+    if tv == "Vector3" then
+        if v.Magnitude > 2 then return headPos, true end
+    elseif tv == "CFrame" then
+        if (v.Position - headPos).Magnitude > 0.001 then
+            return CFrame.lookAt(v.Position, headPos), true
+        end
+    elseif tv == "Instance" and v:IsA("BasePart") then
+        if v.Parent then
+            local plr = Players:GetPlayerFromCharacter(v.Parent)
+            if plr and plr ~= LocalPlayer and headPart then
+                return headPart, true
+            end
+        end
+    end
+    return v, false
+end
+
+local rewriteTable -- إعلان مسبق (تكرار متبادل)
+
+-- قيمة مفردة أو جدول (بحد أقصى مستويين من التداخل)
+local function rewriteAny(v, headPos, headPart, depth)
+    if typeof(v) == "table" and depth < 2 then
+        return rewriteTable(v, headPos, headPart, depth + 1)
+    end
+    return rewriteSingle(v, headPos, headPart)
+end
+
+-- قائمة قيم (وسائط عليا أو جدول مصفوفي): أول Vector3 = الأصل (يبقى)،
+-- آخر Vector3 = الهدف/الاتجاه (يُعاد توجيهه إلى الرأس)
+local function rewriteValueList(vals, n, headPos, headPart, depth)
+    local changed = false
+    local vecIdx = {}
+    for i = 1, n do
+        if typeof(vals[i]) == "Vector3" then table.insert(vecIdx, i) end
+    end
+    if #vecIdx >= 2 then
+        local origin = vals[vecIdx[1]]
+        local aimIdx = vecIdx[#vecIdx]
+        local aim = vals[aimIdx]
+        if aim.Magnitude > 2 then
+            vals[aimIdx] = headPos
+            changed = true
+        elseif aim.Magnitude > 0.001 then
+            local dir = headPos - origin
+            if dir.Magnitude > 0.001 then
+                vals[aimIdx] = dir.Unit * aim.Magnitude
+                changed = true
+            end
+        end
+    elseif #vecIdx == 1 then
+        local v = vals[vecIdx[1]]
+        if v.Magnitude > 2 then
+            vals[vecIdx[1]] = headPos
+            changed = true
+        end
+        -- اتجاه وحيد بلا أصل: لا يمكن إعادة توجيهه بأمان — يمر كما هو
+    end
+    for i = 1, n do
+        local v = vals[i]
+        local tv = typeof(v)
+        if tv == "CFrame" or tv == "table"
+            or (tv == "Instance" and v:IsA("BasePart")) then
+            local nv, ch = rewriteAny(v, headPos, headPart, depth)
+            if ch then
+                vals[i] = nv
+                changed = true
+            end
+        end
+    end
+    return changed
+end
+
+rewriteTable = function(t, headPos, headPart, depth)
+    local out = {}
+    local changed = false
+    local n = #t
+    if n > 0 then
+        for i = 1, n do out[i] = t[i] end
+        if rewriteValueList(out, n, headPos, headPart, depth) then
+            changed = true
+        end
+        for k, v in pairs(t) do
+            if type(k) ~= "number" or k < 1 or k > n then
+                local nv, ch = rewriteAny(v, headPos, headPart, depth)
+                out[k] = nv
+                if ch then changed = true end
+            end
+        end
+    else
+        for k, v in pairs(t) do
+            local nv, ch = rewriteAny(v, headPos, headPart, depth)
+            out[k] = nv
+            if ch then changed = true end
+        end
+    end
+    return out, changed
 end
 
 local function installHooks()
@@ -724,7 +841,7 @@ local function installHooks()
     hooksInstalled = true
     if not hookmetamethod then return end
 
-    -- هوك __namecall: منع الطرد + إعادة توجيه الريموت
+    -- هوك __namecall: منع الطرد + إعادة توجيه الريموت (دون منع أي طلقة أبداً)
     pcall(function()
         local oldNamecall
         oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
@@ -737,12 +854,23 @@ local function installHooks()
             if S.silentAim and S.aimMethod == "Remote"
                 and (method == "FireServer" or method == "InvokeServer")
                 and currentTargetPart and holdingTool() and rollHit() then
-                local args = {...}
-                local targetPos = currentTargetPart.Position
-                for i, a in ipairs(args) do
-                    args[i] = rewriteArg(a, targetPos, 0)
+                local args = tpack(...)
+                local ok, changed, isShoot = pcall(function()
+                    local shoot = looksLikeShootRemote(self)
+                        or argsHavePlayerPart(args)
+                    if not shoot then return false, false end
+                    local headPos = currentTargetPart.Position
+                    local ch = rewriteValueList(args, args.n, headPos,
+                        currentTargetPart, 0)
+                    return ch, true
+                end)
+                if ok and isShoot then
+                    if changed then
+                        lastShotState = "مُعاد توجيهها 🎯"
+                        return oldNamecall(self, tunpack(args, 1, args.n))
+                    end
+                    lastShotState = "مرّت كما هي"
                 end
-                return oldNamecall(self, unpack(args))
             end
             return oldNamecall(self, ...)
         end)
@@ -758,11 +886,15 @@ local function installMouseHook()
         oldIndex = hookmetamethod(game, "__index", function(self, key)
             if S.silentAim and S.aimMethod == "Mouse" and self == Mouse
                 and currentTargetPart and holdingTool() and rollHit() then
-                if key == "Hit" then
-                    return CFrame.new(currentTargetPart.Position)
-                elseif key == "Target" then
-                    return currentTargetPart
-                end
+                local ok, val = pcall(function()
+                    if key == "Hit" then
+                        return CFrame.new(currentTargetPart.Position)
+                    elseif key == "Target" then
+                        return currentTargetPart
+                    end
+                    return nil
+                end)
+                if ok and val ~= nil then return val end
             end
             return oldIndex(self, key)
         end)
@@ -780,8 +912,14 @@ local function bindCameraAim()
                 child.Activated:Connect(function()
                     if S.silentAim and S.aimMethod == "Camera"
                         and currentTargetPart and rollHit() then
-                        local camPos = Camera.CFrame.Position
-                        Camera.CFrame = CFrame.lookAt(camPos, currentTargetPart.Position)
+                        pcall(function()
+                            local camPos = Camera.CFrame.Position
+                            local tp = currentTargetPart.Position
+                            if (tp - camPos).Magnitude > 0.001 then
+                                Camera.CFrame = CFrame.lookAt(camPos, tp)
+                                lastShotState = "كاميرا نحو الرأس 🎯"
+                            end
+                        end)
                     end
                 end)
             end
@@ -1244,6 +1382,7 @@ local secDiag = makeSection("⚙️ التشخيص")
 local diagTeam = makeInfo(secDiag, "فريقي: —")
 local diagTarget = makeInfo(secDiag, "الهدف: —")
 local diagAim = makeInfo(secDiag, "السايلنت إيم: —")
+local diagShot = makeInfo(secDiag, "آخر طلقة: —")
 local diagESP = makeInfo(secDiag, "الكشف: —")
 local diagTP = makeInfo(secDiag, "آخر انتقال: —")
 local diagHooks = makeInfo(secDiag, "الهوكات: —")
@@ -1262,6 +1401,7 @@ local function updateDiagnostics()
         .. " • الطريقة: " .. S.aimMethod
         .. " • الإصابة: " .. S.hitChance .. "%"
         .. " • الدائرة: " .. S.aimFov
+    diagShot.Text = "آخر طلقة: " .. lastShotState
     diagESP.Text = "الكشف: لاعبون " .. espPlayerCount .. " • أسلحة " .. espWeaponCount
     diagTP.Text = "آخر انتقال: " .. S.lastTeleport
     diagHooks.Text = "الهوكات: ريموت/طرد " .. (hooksInstalled and "مثبتة" or "غير مثبتة بعد")
