@@ -1,6 +1,12 @@
 -- ============================================================
 --  ⛓️ سكربت الصادق — حياة السجن (Alsadig Prison Life)
---  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v3)
+--  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v4)
+--  v4: طريقة الكاميرا هي الافتراضية (لا تلمس أي ريموت فلا تفسد
+--      السلاح أبداً). طريقة الريموت صارت "وضع تعلّم": تسجّل أسماء
+--      الريموتات وأنواع وسائطها في التشخيص دون إعادة كتابة أي شيء،
+--      وإعادة التوجيه التجريبية خلف مفتاح منفصل متوقف افتراضياً.
+--      (في v3 كانت إعادة الكتابة تنتج وسائط يرفضها سيرفر اللعبة
+--      فتطلق طلقة واحدة لا تصيب ثم يتعطل السلاح.)
 --  v3: تضييق بوابة السايلنت إيم — لا تُعاد كتابة أي ريموت إلا إذا
 --      طابق اسمه نمط إطلاق ضيّقاً (shoot/fire/bullet) وكانت وسائطه
 --      على شكل طلقة. (في v2 كانت الأنماط واسعة جداً ففسدت حالة
@@ -41,7 +47,8 @@ local S = {
     playerESP = false,
     weaponESP = false,
     silentAim = false,
-    aimMethod = "Remote",       -- Remote / Camera / Mouse
+    aimMethod = "Camera",       -- Camera (افتراضي) / Mouse / Remote (تعلّم)
+    remoteRewrite = false,      -- إعادة توجيه الريموت (تجريبي) — متوقف افتراضياً
     aimFov = 180,
     aimRange = 500,
     hitChance = 100,
@@ -234,7 +241,7 @@ local title = makeLabel(header, "⛓️ سكربت الصادق — حياة ا�
 title.Size = UDim2.new(1, -60, 0, 26)
 title.Position = UDim2.new(0, 14, 0, 8)
 
-local subtitle = makeLabel(header, "Prison Life v3  •  تطوير الصادق", 12, C_ORANGE, false)
+local subtitle = makeLabel(header, "Prison Life v4  •  تطوير الصادق", 12, C_ORANGE, false)
 subtitle.Size = UDim2.new(1, -60, 0, 20)
 subtitle.Position = UDim2.new(0, 14, 0, 36)
 
@@ -711,6 +718,36 @@ end
 local lastShotState = "—"
 local shotsRedirected, shotsPassed = 0, 0
 
+-- وضع التعلّم (v4): سجلّ آخر الريموتات التي أُطلقت أثناء حمل سلاح،
+-- لنتعرف على ريموت الإطلاق الحقيقي للعبة دون تخمين أو إعادة كتابة.
+local remoteLog = {}   -- قائمة مرتبة: الأحدث نشاطاً أولاً {key=..., text=...}
+
+local function logRemote(inst, method, args)
+    local name = "?"
+    pcall(function() name = inst.Name end)
+    local types = {}
+    for i = 1, args.n do
+        types[#types + 1] = typeof(args[i])
+    end
+    local sig = table.concat(types, ", ")
+    local key = name .. "|" .. method .. "|" .. sig
+    local text = name .. " (" .. method .. "): "
+        .. (sig ~= "" and sig or "بدون وسائط")
+    -- إن كان موجوداً: انقله للأمام حتى يبقى ريموت الإطلاق ظاهراً
+    for i, e in ipairs(remoteLog) do
+        if e.key == key then
+            table.remove(remoteLog, i)
+            table.insert(remoteLog, 1, e)
+            return
+        end
+    end
+    table.insert(remoteLog, 1, {key = key, text = text})
+    while #remoteLog > 5 do
+        table.remove(remoteLog)
+    end
+    lastShotState = "سُجّل ريموت جديد 📝"
+end
+
 local tpack = table.pack or function(...) return {n = select("#", ...), ...} end
 local tunpack = table.unpack or unpack
 
@@ -878,33 +915,37 @@ local function installHooks()
             if S.antiKick and method == "Kick" and self == LocalPlayer then
                 return nil
             end
-            -- إعادة توجيه الطلقات (ريموت) — بوابة ضيّقة (v3):
-            -- اسم يطابق نمط إطلاق ضيّقاً + وسائط على شكل طلقة، وإلا
-            -- تمر الوسائط الأصلية كما هي دون لمس أي شيء.
+            -- طريقة الريموت (v4): وضع تعلّم افتراضياً — نسجّل اسم
+            -- الريموت وأنواع وسائطه فقط دون لمس أي شيء. إعادة الكتابة
+            -- لا تحدث إلا إذا فعّل المستخدم المفتاح التجريبي بنفسه،
+            -- وحينها تبقى البوابة الضيّقة (اسم إطلاق + شكل طلقة).
             if S.silentAim and S.aimMethod == "Remote"
                 and (method == "FireServer" or method == "InvokeServer")
-                and currentTargetPart and holdingTool() and rollHit() then
+                and holdingTool() then
                 local args = tpack(...)
-                local ok, changed, isShoot = pcall(function()
-                    if not looksLikeShootRemote(self) then
-                        return false, false
+                pcall(logRemote, self, method, args)
+                if S.remoteRewrite and currentTargetPart and rollHit() then
+                    local ok, changed, isShoot = pcall(function()
+                        if not looksLikeShootRemote(self) then
+                            return false, false
+                        end
+                        if not argsLookShotShaped(args) then
+                            return false, false
+                        end
+                        local headPos = currentTargetPart.Position
+                        local ch = rewriteValueList(args, args.n, headPos,
+                            currentTargetPart, 0)
+                        return ch, true
+                    end)
+                    if ok and isShoot then
+                        if changed then
+                            shotsRedirected = shotsRedirected + 1
+                            lastShotState = "مُعاد توجيهها 🎯"
+                            return oldNamecall(self, tunpack(args, 1, args.n))
+                        end
+                        shotsPassed = shotsPassed + 1
+                        lastShotState = "مرّت كما هي"
                     end
-                    if not argsLookShotShaped(args) then
-                        return false, false
-                    end
-                    local headPos = currentTargetPart.Position
-                    local ch = rewriteValueList(args, args.n, headPos,
-                        currentTargetPart, 0)
-                    return ch, true
-                end)
-                if ok and isShoot then
-                    if changed then
-                        shotsRedirected = shotsRedirected + 1
-                        lastShotState = "مُعاد توجيهها 🎯"
-                        return oldNamecall(self, tunpack(args, 1, args.n))
-                    end
-                    shotsPassed = shotsPassed + 1
-                    lastShotState = "مرّت كما هي"
                 end
             end
             return oldNamecall(self, ...)
@@ -1128,13 +1169,21 @@ local function bindGodMode()
                 hum.Health = hum.MaxHealth
             end
         end)
+        -- تعطيل حالة الموت أثناء تفعيل الوضع (تُزامَن كل إطار في updateGod)
+        pcall(function()
+            hum:SetStateEnabled(Enum.HumanoidStateType.Dead, not S.godMode)
+        end)
     end
 end
 
 local function updateGod()
-    if not S.godMode then return end
     local hum = getHumanoid()
-    if hum and hum.Health < hum.MaxHealth then
+    if not hum then return end
+    -- مزامنة حالة الموت مع المفتاح: معطّلة أثناء الوضع، مفعّلة بدونه
+    pcall(function()
+        hum:SetStateEnabled(Enum.HumanoidStateType.Dead, not S.godMode)
+    end)
+    if S.godMode and hum.Health < hum.MaxHealth then
         hum.Health = hum.MaxHealth
     end
 end
@@ -1270,13 +1319,20 @@ makeToggle(secAim, "تفعيل السايلنت إيم", false, function(v)
     updateFovCircle()
     toast(v and "🎯 السايلنت إيم: يعمل" or "🎯 السايلنت إيم: متوقف")
 end)
-makeCycle(secAim, "الطريقة", {"Remote", "Camera", "Mouse"}, 1, function(v)
+makeCycle(secAim, "الطريقة", {"Camera", "Mouse", "Remote"}, 1, function(v)
     S.aimMethod = v
     installHooks()
     installMouseHook()
     bindCameraAim()
 end)
-makeInfo(secAim, "على الهاتف: Remote أولاً، ثم Camera. Mouse الأضعف.")
+makeInfo(secAim, "Camera الافتراضية والآمنة. Remote = وضع تعلّم (يسجّل الريموتات فقط).")
+makeToggle(secAim, "🧪 إعادة توجيه الريموت (تجريبي)", false, function(v)
+    S.remoteRewrite = v
+    toast(v and "🧪 إعادة توجيه الريموت: تعمل (تجريبي)" or "🧪 إعادة توجيه الريموت: متوقفة")
+end)
+-- شريط تشخيص مضغوط أعلى القسم حتى لا يضيع العدّاد أسفل القائمة
+local aimShotStrip = makeInfo(secAim, "آخر طلقة: —")
+local aimCountStrip = makeInfo(secAim, "طلقات مُعاد توجيهها: 0 | مرّت: 0")
 makeCycle(secAim, "حجم الدائرة", {90, 140, 180, 240, 320}, 3, function(v)
     S.aimFov = v
     updateFovCircle()
@@ -1419,6 +1475,13 @@ local diagTarget = makeInfo(secDiag, "الهدف: —")
 local diagAim = makeInfo(secDiag, "السايلنت إيم: —")
 local diagShot = makeInfo(secDiag, "آخر طلقة: —")
 local diagShotCount = makeInfo(secDiag, "طلقات مُعاد توجيهها: 0 | مرّت: 0")
+makeInfo(secDiag, "📝 سجل الريموتات (وضع التعلّم — أطلق النار وأنت ماسك سلاحاً):")
+local diagRemoteLines = {}
+for i = 1, 5 do
+    local l = makeInfo(secDiag, "• —")
+    l.Size = UDim2.new(1, 0, 0, 34)
+    diagRemoteLines[i] = l
+end
 local diagESP = makeInfo(secDiag, "الكشف: —")
 local diagTP = makeInfo(secDiag, "آخر انتقال: —")
 local diagHooks = makeInfo(secDiag, "الهوكات: —")
@@ -1440,6 +1503,12 @@ local function updateDiagnostics()
     diagShot.Text = "آخر طلقة: " .. lastShotState
     diagShotCount.Text = "طلقات مُعاد توجيهها: " .. shotsRedirected
         .. " | مرّت: " .. shotsPassed
+    aimShotStrip.Text = diagShot.Text
+    aimCountStrip.Text = diagShotCount.Text
+    for i = 1, 5 do
+        local e = remoteLog[i]
+        diagRemoteLines[i].Text = e and ("• " .. e.text) or "• —"
+    end
     diagESP.Text = "الكشف: لاعبون " .. espPlayerCount .. " • أسلحة " .. espWeaponCount
     diagTP.Text = "آخر انتقال: " .. S.lastTeleport
     diagHooks.Text = "الهوكات: ريموت/طرد " .. (hooksInstalled and "مثبتة" or "غير مثبتة بعد")
