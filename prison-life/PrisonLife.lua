@@ -1,6 +1,10 @@
 -- ============================================================
 --  ⛓️ سكربت الصادق — حياة السجن (Alsadig Prison Life)
---  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v2)
+--  سكربت Prison Life لدلتا موبايل — تطوير الصادق (v3)
+--  v3: تضييق بوابة السايلنت إيم — لا تُعاد كتابة أي ريموت إلا إذا
+--      طابق اسمه نمط إطلاق ضيّقاً (shoot/fire/bullet) وكانت وسائطه
+--      على شكل طلقة. (في v2 كانت الأنماط واسعة جداً ففسدت حالة
+--      السلاح بعد أول طلقة وبقي معطّلاً حتى مع إيقاف السايلنت.)
 --  v2: إصلاح منع الطلقات — الهوك لا يمنع أي طلقة أبداً، ويحافظ على
 --      نقطة بداية الطلقة مع إعادة توجيهها إلى رأس الهدف.
 -- ============================================================
@@ -230,7 +234,7 @@ local title = makeLabel(header, "⛓️ سكربت الصادق — حياة ا�
 title.Size = UDim2.new(1, -60, 0, 26)
 title.Position = UDim2.new(0, 14, 0, 8)
 
-local subtitle = makeLabel(header, "Prison Life v2  •  تطوير الصادق", 12, C_ORANGE, false)
+local subtitle = makeLabel(header, "Prison Life v3  •  تطوير الصادق", 12, C_ORANGE, false)
 subtitle.Size = UDim2.new(1, -60, 0, 20)
 subtitle.Position = UDim2.new(0, 14, 0, 36)
 
@@ -705,13 +709,15 @@ end
 --  فكان السيرفر يرفض الطلقة ولا يحدث شيء عند الضغط على الإطلاق.)
 
 local lastShotState = "—"
+local shotsRedirected, shotsPassed = 0, 0
 
 local tpack = table.pack or function(...) return {n = select("#", ...), ...} end
 local tunpack = table.unpack or unpack
 
-local SHOOT_PATTERNS = {"shoot", "fire", "bullet", "gun", "hit", "damage",
-    "attack", "ray", "cast", "weapon", "projectile", "remote", "event",
-    "ranged", "throw"}
+-- أنماط ضيّقة جداً (v3): لا تُلمس أي ريموتات إلا ريموتات الإطلاق
+-- الفعلية. الأنماط الواسعة في v2 (gun/hit/damage/remote/event...)
+-- كانت تطابق ريموتات التجهيز وإعادة التعبئة والحالة فتفسد السلاح.
+local SHOOT_PATTERNS = {"shoot", "fire", "bullet"}
 
 local function looksLikeShootRemote(inst)
     local ok, name = pcall(function() return string.lower(inst.Name) end)
@@ -722,15 +728,37 @@ local function looksLikeShootRemote(inst)
     return false
 end
 
--- هل تحتوي الوسائط على جزء من شخصية لاعب آخر؟ (نمط "الجزء المصاب")
-local function argsHavePlayerPart(args)
-    for i = 1, args.n do
-        local v = args[i]
-        if typeof(v) == "Instance" and v:IsA("BasePart") and v.Parent then
-            local plr = Players:GetPlayerFromCharacter(v.Parent)
-            if plr and plr ~= LocalPlayer then return true end
+-- هل تبدو الوسائط كطلقة؟ (v3) — شرط ثانٍ فوق مطابقة الاسم الضيّقة:
+-- Vector3×2 (أصل + هدف)، أو CFrame + Vector3، أو Vector3 موضعي وحيد،
+-- أو جزء من شخصية لاعب آخر (نمط "الجزء المصاب"). الحالتان الأخيرتان
+-- لا تُقبلان إلا مع مطابقة الاسم الضيّقة أصلاً، فلا يوجد أي تجاوز
+-- يسمح بلمس ريموتات لا تطابق الاسم.
+local function argsLookShotShaped(args)
+    local vecCount, hasCF, hasPart = 0, false, false
+    local function scanOne(v, depth)
+        local tv = typeof(v)
+        if tv == "Vector3" then
+            vecCount = vecCount + 1
+        elseif tv == "CFrame" then
+            hasCF = true
+        elseif tv == "Instance" and v:IsA("BasePart") then
+            if v.Parent then
+                local plr = Players:GetPlayerFromCharacter(v.Parent)
+                if plr and plr ~= LocalPlayer then hasPart = true end
+            end
+        elseif tv == "table" and depth < 2 then
+            for _, val in pairs(v) do
+                scanOne(val, depth + 1)
+            end
         end
     end
+    for i = 1, args.n do
+        scanOne(args[i], 0)
+    end
+    if vecCount >= 2 then return true end
+    if hasCF and vecCount >= 1 then return true end
+    if vecCount == 1 then return true end
+    if hasPart then return true end
     return false
 end
 
@@ -850,15 +878,20 @@ local function installHooks()
             if S.antiKick and method == "Kick" and self == LocalPlayer then
                 return nil
             end
-            -- إعادة توجيه الطلقات (ريموت)
+            -- إعادة توجيه الطلقات (ريموت) — بوابة ضيّقة (v3):
+            -- اسم يطابق نمط إطلاق ضيّقاً + وسائط على شكل طلقة، وإلا
+            -- تمر الوسائط الأصلية كما هي دون لمس أي شيء.
             if S.silentAim and S.aimMethod == "Remote"
                 and (method == "FireServer" or method == "InvokeServer")
                 and currentTargetPart and holdingTool() and rollHit() then
                 local args = tpack(...)
                 local ok, changed, isShoot = pcall(function()
-                    local shoot = looksLikeShootRemote(self)
-                        or argsHavePlayerPart(args)
-                    if not shoot then return false, false end
+                    if not looksLikeShootRemote(self) then
+                        return false, false
+                    end
+                    if not argsLookShotShaped(args) then
+                        return false, false
+                    end
                     local headPos = currentTargetPart.Position
                     local ch = rewriteValueList(args, args.n, headPos,
                         currentTargetPart, 0)
@@ -866,9 +899,11 @@ local function installHooks()
                 end)
                 if ok and isShoot then
                     if changed then
+                        shotsRedirected = shotsRedirected + 1
                         lastShotState = "مُعاد توجيهها 🎯"
                         return oldNamecall(self, tunpack(args, 1, args.n))
                     end
+                    shotsPassed = shotsPassed + 1
                     lastShotState = "مرّت كما هي"
                 end
             end
@@ -1383,6 +1418,7 @@ local diagTeam = makeInfo(secDiag, "فريقي: —")
 local diagTarget = makeInfo(secDiag, "الهدف: —")
 local diagAim = makeInfo(secDiag, "السايلنت إيم: —")
 local diagShot = makeInfo(secDiag, "آخر طلقة: —")
+local diagShotCount = makeInfo(secDiag, "طلقات مُعاد توجيهها: 0 | مرّت: 0")
 local diagESP = makeInfo(secDiag, "الكشف: —")
 local diagTP = makeInfo(secDiag, "آخر انتقال: —")
 local diagHooks = makeInfo(secDiag, "الهوكات: —")
@@ -1402,6 +1438,8 @@ local function updateDiagnostics()
         .. " • الإصابة: " .. S.hitChance .. "%"
         .. " • الدائرة: " .. S.aimFov
     diagShot.Text = "آخر طلقة: " .. lastShotState
+    diagShotCount.Text = "طلقات مُعاد توجيهها: " .. shotsRedirected
+        .. " | مرّت: " .. shotsPassed
     diagESP.Text = "الكشف: لاعبون " .. espPlayerCount .. " • أسلحة " .. espWeaponCount
     diagTP.Text = "آخر انتقال: " .. S.lastTeleport
     diagHooks.Text = "الهوكات: ريموت/طرد " .. (hooksInstalled and "مثبتة" or "غير مثبتة بعد")
